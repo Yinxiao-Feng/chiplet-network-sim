@@ -3,6 +3,9 @@
 #include <fstream>
 
 #include "system.h"
+extern "C" {
+#include "netrace/netrace.h"
+}
 
 class TrafficManager {
  public:
@@ -19,28 +22,31 @@ class TrafficManager {
   Packet* adversarial_mess();
   Packet* dc_trace_mess();
   void all_to_all_mess(std::vector<Packet*>& packets);
-  inline float receiving_rate() {
+  void netrace(std::vector<Packet*>& packets, uint64_t cyc);
+  inline float receiving_rate() const {
     return injection_rate_ * ((float)TM->message_arrived_ / TM->all_message_num_);
   };
 
-  void print_info();
+  void print_statistics();
 
   std::fstream trace_;
+  nt_context_t* CTX;
   std::fstream output_;
+  std::fstream log_;
 
   float injection_rate_;
-  Traffic traffic_;
+  std::string traffic_;
   int message_length_;
 
-  std::map<std::pair<int, int>, uint64_t> traffic_map_;
+  //std::map<std::pair<int, int>, uint64_t> traffic_map_;
   float pkt_for_injection_;
-  // statistics
+  // atomic statistics, modified by all threds
   std::chrono::system_clock::time_point time_;
-  std::atomic_int64_t all_message_num_;
-  std::atomic_int64_t message_arrived_;
-  std::atomic_int64_t message_timeout_;
-  std::atomic_int64_t total_cycles_;
-  std::atomic_int64_t total_internal_hops_;
-  std::atomic_int64_t total_parallel_hops_;
-  std::atomic_int64_t total_serial_hops_;
+  std::atomic_uint64_t all_message_num_;
+  std::atomic_uint64_t message_arrived_;
+  std::atomic_uint64_t message_timeout_;
+  std::atomic_uint64_t total_cycles_;
+  std::atomic_uint64_t total_internal_hops_;
+  std::atomic_uint64_t total_parallel_hops_;
+  std::atomic_uint64_t total_serial_hops_;
 };

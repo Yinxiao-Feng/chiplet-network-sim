@@ -1,1 +1,4 @@
 # ChipletNetworkSim
+
+## Dependencies
+- boost library

@@ -1,11 +1,11 @@
 #pragma once
-#include "packet.h"
 #include "chip.h"
+#include "packet.h"
 
 class System {
  public:
   System();
-  static System* New(Topology topology);
+  static System* New(std::string);
   virtual ~System() {}
   virtual void reset();
   // Message* genMes();
@@ -17,7 +17,7 @@ class System {
   virtual void routing_algorithm(Packet& s) = 0;
   void vc_allocate(Packet& s);
   void switch_allocate(Packet& s);
-  //void transmit_head(Packet& s);
+  // void transmit_head(Packet& s);
   virtual inline Chip* get_chip(int chip_id) const { return chips_[chip_id]; }
   virtual inline Chip* get_chip(NodeID id) const { return chips_[id.chip_id]; }
   virtual inline Node* get_node(NodeID id) const {
@@ -25,7 +25,7 @@ class System {
   }
 
   int num_chips_;
-  int num_nodes_; // some nodes are only for routing, no packets injected
+  int num_nodes_;  // some nodes are only for routing, no packets injected
   int num_cores_;
 
   std::vector<Chip*> chips_;
@@ -34,7 +34,7 @@ class System {
   int routing_time_;
   int vc_allocating_time_;
   int sw_allocating_time_;
-  Router microarchitecture_;
+  std::string microarchitecture_;
 
   // simulation parameters
   int timeout_time_;

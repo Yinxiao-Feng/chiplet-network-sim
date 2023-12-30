@@ -20,21 +20,19 @@ System::System() {
   timeout_time_ = param->timeout_threshold;
 }
 
-System* System::New(Topology topology) {
-  switch (topology) {
-    case Topology::SingleChipMesh:
-      return new SingleChipMesh;
-      break;
-    case Topology::DragonflySW:
-      return new DragonflySW;
-      break;
-    case Topology::DragonflyChiplet:
-      return new DragonflyChiplet;
-      break;
-    default:
-      std::cerr << "No such a topology!" << std::endl;
-      return nullptr;
+System* System::New(std::string topology) {
+  System* sys_ptr;
+  if (topology == "SingleChipMesh")
+    sys_ptr = new SingleChipMesh;
+  else if (topology == "DragonflySW")
+    sys_ptr = new DragonflySW;
+  else if (topology == "DragonflyChiplet")
+    sys_ptr = new DragonflyChiplet;
+  else {
+    std::cerr << "No such a topology!" << std::endl;
+    return nullptr;
   }
+  return sys_ptr;
 }
 
 void System::reset() {
@@ -139,7 +137,17 @@ void System::update(Packet& p) {
   // switch_allocated_ is the final credit for message forwarding.
   if (p.link_timer_ == 0) {                     // reach the input buffer
     if (p.head_trace().id != p.destination_) {  // not reach destination
-      switch (microarchitecture_) {
+      if (microarchitecture_ == "OneStage") {
+        onestage(p);
+      } else if (microarchitecture_ == "TwoStage") {
+        twostage(p);
+      } else if (microarchitecture_ == "ThreeStage") {
+        Threestage(p);
+      } else {
+        onestage(p);
+      }
+
+      /*switch (microarchitecture_) {
         case Router::OneStage:
           onestage(p);
           break;
@@ -152,7 +160,7 @@ void System::update(Packet& p) {
         default:
           onestage(p);
           break;
-      }
+      }*/
       if (!p.switch_allocated_) p.wait_timer_++;
     }
   } else {
@@ -166,7 +174,7 @@ void System::update(Packet& p) {
     temp1 = p.next_vc_;
     p.wait_timer_ = 0;
     p.link_timer_ = p.next_vc_.buffer->channel_.latency;
-    TM->traffic_map_[{p.head_trace().id.node_id, temp1.id.node_id}]++;
+    //TM->traffic_map_[{p.head_trace().id.node_id, temp1.id.node_id}]++;
     p.internal_hops_ += 1;
     p.routing_timer_ = routing_time_;
     p.VA_timer_ = vc_allocating_time_;

@@ -14,5 +14,8 @@ include_directories(${Boost_INCLUDE_DIRS})
 endif()
 
 aux_source_directory(./src SRC_FILES)
-add_executable (cnsim ${SRC_FILES})
+aux_source_directory(./src/netrace NETRACE_FILES)
+add_executable (${PROJECT_NAME} ${SRC_FILES} ${NETRACE_FILES})
+
+# SET_TARGET_PROPERTIES(${PROJECT_NAME} PROPERTIES LINK_FLAGS "/PROFILE")
 

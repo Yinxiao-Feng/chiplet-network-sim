@@ -2,7 +2,12 @@
 #include "node.h"
 
 struct VCInfo {
-  VCInfo(Buffer* buffer_ = nullptr, int vc_ = 0, NodeID id_ = NodeID()) {
+  VCInfo() {
+    buffer = nullptr;
+    vc = 0;
+    id = NodeID();
+  }
+  VCInfo(Buffer* buffer_, int vc_ = 0, NodeID id_ = NodeID()) {
     buffer = buffer_;
     vc = vc_;
     if (buffer_ != nullptr)
