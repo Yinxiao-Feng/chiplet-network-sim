@@ -19,9 +19,9 @@ NodeInCG::NodeInCG(int k_chiplet, int vc_num, int buffer_size)
   k_chiplet_ = k_chiplet;
   x_ = 0;
   y_ = 0;
-  //for (int i = 0; i < 4; i++) {
-  //  in_buffers_[i]->channel_.width = 2;
-  //}
+  // for (int i = 0; i < 4; i++) {
+  //   in_buffers_[i]->channel_.width = 2;
+  // }
   in_buffers_[4]->channel_ = off_chip_channel;
 }
 
@@ -222,22 +222,20 @@ void DragonflyChiplet::MIN_routing(Packet& s) {
     int current_wg_id = current_cgroup->wgroup_id_;
     int dest_wg_id = dest_cgroup->wgroup_id_;
     // mis-routing
-    if (param->misrouting) {
-      CGroup* source_cg = get_node(s.source_)->cgroup_;
-      int source_wg_id = source_cg->wgroup_id_;
-      int src_cg_id_in_wgroup = source_cg->cgroup_id_ % cgroup_per_wgroup_;
-      // port id for the lowest global port of the C-group: cg_id_in_wgroup
-      if (current_wg_id == source_wg_id) {
-        int leave_node_id =
-            port_node_map_.at(src_cg_id_in_wgroup + s.source_.node_id % g_ports_per_cg_);
-        Port misrouting_global_port = get_port(current_cgroup->cgroup_id_, leave_node_id);
-        if (current->node_id_in_cg_ == leave_node_id) {
-          VCInfo vc(misrouting_global_port.link_buffer, 0);
-          s.candidate_channels_.push_back(vc);
-        } else {
-          XY_routing(s, NodeID(misrouting_global_port.node_id));
-          return;
-        }
+    CGroup* source_cg = get_node(s.source_)->cgroup_;
+    int source_wg_id = source_cg->wgroup_id_;
+    int src_cg_id_in_wgroup = source_cg->cgroup_id_ % cgroup_per_wgroup_;
+    // port id for the lowest global port of the C-group: cg_id_in_wgroup
+    if (current_wg_id == source_wg_id) {
+      int leave_node_id =
+          port_node_map_.at(src_cg_id_in_wgroup + s.source_.node_id % g_ports_per_cg_);
+      Port misrouting_global_port = get_port(current_cgroup->cgroup_id_, leave_node_id);
+      if (current->node_id_in_cg_ == leave_node_id) {
+        VCInfo vc(misrouting_global_port.link_buffer, 0);
+        s.candidate_channels_.push_back(vc);
+      } else {
+        XY_routing(s, NodeID(misrouting_global_port.node_id));
+        return;
       }
       // if (current_wg_id == source_wg_id) {
       //   dest_wg_id = (dest_wg_id + s.source_.chip_id * 64 + s.source_.node_id) % num_wgroup_;

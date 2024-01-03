@@ -46,7 +46,7 @@ DragonflySW::DragonflySW() : num_switch_(num_chips_), switches_(chips_) {
   num_nodes_ = num_switch_ * (cores_per_sw_ + 1);
   std::cout << "n_per_s:" << cores_per_sw_ << " s_per_g:" << sw_per_group_ << " g:" << num_group_
             << std::endl;
-  algorithm_ = Algorithm::MIN;
+  algorithm_ = param->routing_algorithm;
   switches_.reserve(num_switch_);
   for (int sw_id = 0; sw_id < num_switch_; sw_id++) {
     switches_.push_back(
@@ -122,13 +122,10 @@ void DragonflySW::connect_global() {
 }
 
 void DragonflySW::routing_algorithm(Packet& s) {
-  switch (algorithm_) {
-    case DragonflySW::Algorithm::MIN:
-      MIN_routing(s);
-      break;
-    default:
-      MIN_routing(s);
-  }
+  if (algorithm_ == "MIN")
+    MIN_routing(s);
+  else
+    std::cerr << "Unknown routing algorithm: " << algorithm_ << std::endl;
 }
 
 void DragonflySW::MIN_routing(Packet& s) {
@@ -156,16 +153,14 @@ void DragonflySW::MIN_routing(Packet& s) {
     int current_group_id = current_sw->group_id_;
     int dest_group_id = dest_sw->group_id_;
     // mis-routing
-    if (param->misrouting) {
-      int source_group_id = get_switch(s.source_)->group_id_;
-      if (current_group_id == source_group_id) {
-        int sw_id_in_group = current_sw->chip_id_ % sw_per_group_;
-        int lowest_global_port_id = cores_per_sw_ + sw_id_in_group;
-        VCInfo vc(current->link_buffers_[lowest_global_port_id + s.source_.node_id], 0);
-        s.candidate_channels_.push_back(vc);
-        return;
-      }
-    }
+    //int source_group_id = get_switch(s.source_)->group_id_;
+    //if (current_group_id == source_group_id) {
+    //  int sw_id_in_group = current_sw->chip_id_ % sw_per_group_;
+    //  int lowest_global_port_id = cores_per_sw_ + sw_id_in_group;
+    //  VCInfo vc(current->link_buffers_[lowest_global_port_id + s.source_.node_id], 0);
+    //  s.candidate_channels_.push_back(vc);
+    //  return;
+    //}
     // std::cout << current_group_id << " " << dest_group_id << std::endl;
     Port global_port = global_link_map_.at(std::make_pair(current_group_id, dest_group_id));
     if (current->id_ == global_port.node_id) {  // the global link is at current switch

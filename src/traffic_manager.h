@@ -20,7 +20,7 @@ class TrafficManager {
   Packet* bitshuffle_mess();
   Packet* bittranspose_mess();
   Packet* adversarial_mess();
-  Packet* dc_trace_mess();
+  Packet* sd_trace_mess();
   void all_to_all_mess(std::vector<Packet*>& packets);
   void netrace(std::vector<Packet*>& packets, uint64_t cyc);
   inline float receiving_rate() const {

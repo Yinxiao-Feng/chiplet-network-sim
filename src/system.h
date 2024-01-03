@@ -15,7 +15,7 @@ class System {
   void Threestage(Packet& s);
   void routing(Packet& s);
   virtual void routing_algorithm(Packet& s) = 0;
-  void vc_allocate(Packet& s);
+  void vc_allocate(Packet& s) const;
   void switch_allocate(Packet& s);
   // void transmit_head(Packet& s);
   virtual inline Chip* get_chip(int chip_id) const { return chips_[chip_id]; }

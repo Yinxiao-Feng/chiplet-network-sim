@@ -3,8 +3,6 @@
 #include "system.h"
 
 class SingleChipMesh : public System {
-  enum class Algorithm { XY, NFR };
-
  public:
   SingleChipMesh();
   ~SingleChipMesh();
@@ -14,9 +12,10 @@ class SingleChipMesh : public System {
   }
 
   void routing_algorithm(Packet& s) override;
-  void XY_routing(Packet& s);
+  void XY_routing(Packet& s) const;
+  void NFR_routing(Packet& s) const;
 
-  Algorithm algorithm_;
+  std::string algorithm_;
 
   int k_node_;
 };

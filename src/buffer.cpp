@@ -55,20 +55,19 @@ bool Buffer::allocate_link(Packet& p) {
     if (node_->id_ != p.destination_) {
       vc_queue_[p.next_vc_.vc].push(&p);
     }
-    //if (current_vc.buffer != nullptr) {
-    //  assert(current_vc.head_packet() == &p);
-    //  current_vc.buffer->vc_queue_[current_vc.vc].pop();
-    //}
     return true;
-  } else  // allocation failed (link is allocated by other threads)
+  } else  // allocation failed, link is allocated by other threads(packets)
     return false;
 }
 
 void Buffer::release_link(Packet& p) {
   bool link_used = true;
   if (link_used_.compare_exchange_strong(link_used, false)) {
-    VCInfo previous_vc = p.releasebuffer_;
-    if (previous_vc.buffer != nullptr) previous_vc.buffer->vc_queue_[previous_vc.vc].pop();
+    VCInfo releasing_vc = p.leaving_vc_;
+    if (releasing_vc.buffer != nullptr) {
+      assert(releasing_vc.head_packet() == &p);
+      releasing_vc.buffer->vc_queue_[releasing_vc.vc].pop();
+    }
   };
   return;
 }

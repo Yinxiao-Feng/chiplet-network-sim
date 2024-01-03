@@ -2,12 +2,7 @@
 #include "node.h"
 
 struct VCInfo {
-  VCInfo() {
-    buffer = nullptr;
-    vc = 0;
-    id = NodeID();
-  }
-  VCInfo(Buffer* buffer_, int vc_ = 0, NodeID id_ = NodeID()) {
+  VCInfo(Buffer* buffer_ = nullptr, int vc_ = 0, NodeID id_ = NodeID()) {
     buffer = buffer_;
     vc = vc_;
     if (buffer_ != nullptr)
@@ -26,7 +21,10 @@ struct VCInfo {
 class Packet {
  public:
   Packet(NodeID src, NodeID dst, int length);
-  friend std::ostream& operator<<(std::ostream& s, Packet*& m);
+  friend std::ostream& operator<<(std::ostream& s, Packet*& m) {
+    s << "Source:" << m->source_ << " Destination:" << m->destination_ << std::endl;
+    return s;
+  }
   inline VCInfo head_trace() const { return flit_trace_[0]; };
   inline VCInfo tail_trace() const { return flit_trace_[length_ - 1]; };
 
@@ -51,9 +49,9 @@ class Packet {
   int internal_hops_;
   int parallel_hops_;
   int serial_hops_;
-  bool finished_;       // check message whether arrived
-  bool releaselink_;    // if the tail of a message shifts , the physical link
-                        // the message occupied should release.
-  VCInfo releasebuffer_;  // if the tail of a message shifts , the buffer the
-                        // message occupied should release.
+  bool finished_;      // check message whether arrived
+  bool releaselink_;   // if the tail of a message shifts , the physical link
+                       // the message occupied should release.
+  VCInfo leaving_vc_;  // if the tail of a message shifts , the buffer the
+                       // message occupied should release.
 };

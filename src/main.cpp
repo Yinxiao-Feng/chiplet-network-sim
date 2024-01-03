@@ -11,14 +11,14 @@ System* network;
 static std::vector<std::thread> threads;
 static volatile bool all_finished = false;
 static std::condition_variable cv;
-static std::atomic_uint64_t pkt_i; // atomic counter, shared by all threads
+static std::atomic_uint64_t pkt_i;  // atomic counter, shared by all threads
 // per thread vavriable
 static std::mutex* mtxs;
 static volatile bool* thread_ready;
 static volatile bool* task_ready;
 
-//void run_one_cycle(std::vector<Packet*>& vecmess, System* s);
-//void update_packets(std::vector<Packet*>& packets, System* s);
+// void run_one_cycle(std::vector<Packet*>& vecmess, System* s);
+// void update_packets(std::vector<Packet*>& packets, System* s);
 
 static void update_packets(std::vector<Packet*>& packets, System* system) {
   uint64_t i = pkt_i.load();
@@ -88,11 +88,11 @@ int main(int argc, char* argv[]) {
   TM = new TrafficManager();
   srand(1);
 
-  uint64_t timeout_limit = 1000;
+  uint64_t timeout_limit = param->timeout_limit;
   float maximum_receiving_rate = 0;
   std::vector<Packet*> all_packets;
 
-  // Multi-threads
+  // Multi-threads initialization
   if (param->threads > 1) {
     mtxs = new std::mutex[param->threads];
     thread_ready = new bool[param->threads];
@@ -110,44 +110,57 @@ int main(int argc, char* argv[]) {
     // All threads are waiting for cv.notify_all()
   }
 
-  while (true) {
-    TM->injection_rate_ += param->injection_increment;
-
-    //  warm up
-    for (uint64_t i = 0; i < param->simulation_time / 10; i++) {
-      TM->genMes(all_packets, i);
-      run_one_cycle(all_packets, network);
-    }
-    TM->reset();
-    for (uint64_t i = 0; i < param->simulation_time && TM->message_timeout_ < timeout_limit; i++) {
+  if (param->traffic == "netrace") {
+    TM->injection_rate_ = (float)TM->CTX->input_trheader->num_packets /
+                          TM->CTX->input_trheader->num_cycles / network->num_cores_;
+    for (uint64_t i = 0; i < TM->CTX->input_trheader->num_cycles + 1000; i++) {
       TM->genMes(all_packets, i);
       run_one_cycle(all_packets, network);
     }
     TM->print_statistics();
-    if (TM->receiving_rate() > maximum_receiving_rate)
-      maximum_receiving_rate = TM->receiving_rate();
-    // Saturated
-    if (TM->message_arrived_ < (TM->message_timeout_ + all_packets.size()) * 5) {
-      std::cout << std::endl
-                << "Saturation point!" << std::endl
-                << "Maximum average receiving traffic: " << maximum_receiving_rate
-                << " flits/(node*cycle)" << std::endl;
-#ifdef _DEBUG
-      for (uint64_t i = 0; i < param->simulation_time * 2; i++) {  // try to drain
+    nt_close_trfile(TM->CTX);
+  } else
+    while (true) {
+      TM->injection_rate_ += param->injection_increment;
+
+      //  warm up for 1% of the simulation time
+      for (uint64_t i = 0; i < param->simulation_time / 100; i++) {
+        TM->genMes(all_packets);
         run_one_cycle(all_packets, network);
       }
-      if (all_packets.size() != 0)
-        std::cerr << "Deadlock!" << std::endl;
-      else
-        std::cerr << "No deadlock!" << std::endl;
+      TM->reset();
+      for (uint64_t i = 0; i < param->simulation_time && TM->message_timeout_ < timeout_limit;
+           i++) {
+        TM->genMes(all_packets);
+        run_one_cycle(all_packets, network);
+      }
+      TM->print_statistics();
+      if (TM->receiving_rate() > maximum_receiving_rate)
+        maximum_receiving_rate = TM->receiving_rate();
+      // Saturated
+      if (TM->message_arrived_ < (TM->message_timeout_ + all_packets.size()) * 5) {
+        std::cout << std::endl
+                  << "Saturation point!" << std::endl
+                  << "Maximum average receiving traffic: " << maximum_receiving_rate
+                  << " flits/(node*cycle)" << std::endl;
+#ifdef _DEBUG
+        for (uint64_t i = 0; i < param->simulation_time * 2; i++) {  // try to drain
+          run_one_cycle(all_packets, network);
+          if (all_packets.size() == 0) {
+            std::cerr << "No deadlock!" << std::endl;
+            break;
+          }
+        }
+        if (all_packets.size() != 0)
+          std::cerr << "Possible Deadlock!" << std::endl;
 #endif  // DEBUG
-      break;
+        break;
+      }
+      for (auto pkt : all_packets) delete pkt;
+      all_packets.clear();
+      network->reset();
+      srand(1);
     }
-    for (auto mess : all_packets) delete mess;
-    all_packets.clear();
-    network->reset();
-    srand(1);
-  }
   if (param->threads > 1) {
     all_finished = true;
     for (int i = 0; i < param->threads; ++i) {

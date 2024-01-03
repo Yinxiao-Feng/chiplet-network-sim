@@ -22,8 +22,6 @@ class ChipSwitch : public Chip {
 };
 
 class DragonflySW : public System {
-  enum class Algorithm { MIN };
-
  public:
   DragonflySW();
   ~DragonflySW();
@@ -46,7 +44,7 @@ class DragonflySW : public System {
   // <switch_id_in_group, port_id>
   std::pair<int, int> global_port_id_to_port_id(int global_port_id);
 
-  Algorithm algorithm_;
+  std::string algorithm_;
 
   int sw_radix_;
   int cores_per_sw_;

@@ -25,8 +25,3 @@ Packet::Packet(NodeID source, NodeID destination, int length) {
     finished_ = false;
     releaselink_ = false;
 }
-
-std::ostream& operator<<(std::ostream& s, Packet*& m) {
-    s << "Source:" << m->source_ << " Destination:" << m->destination_ << std::endl;
-    return s;
-}

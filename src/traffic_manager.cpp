@@ -5,24 +5,23 @@
 boost::mt19937 gen;
 
 TrafficManager::TrafficManager() {
-  
   injection_rate_ = 0;
   traffic_ = param->traffic;
   message_length_ = param->packet_length;
-  if (traffic_ == "dc_trace") {
+  if (traffic_ == "sd_trace") {
     trace_.open(param->trace_file, std::fstream::in);
     std::cout << "Trace file is read!" << std::endl;
     std::string head;
     std::getline(trace_, head);
   } else if (traffic_ == "netrace") {
-	CTX = new nt_context_t();
+    CTX = new nt_context_t();
     nt_open_trfile(CTX, param->netrace_file.c_str());
     nt_disable_dependencies(CTX);
     nt_print_trheader(CTX);
   }
   output_.open(param->output_file, std::fstream::out);
   log_.open(param->log_file, std::fstream::out);
-  
+
   pkt_for_injection_ = 0;
   // statistics
   time_ = std::chrono::system_clock::now();
@@ -41,7 +40,7 @@ TrafficManager::TrafficManager() {
 }
 
 TrafficManager::~TrafficManager() {
-  if (traffic_ == "dc_trace") {
+  if (traffic_ == "sd_trace") {
     trace_.close();
   } else if (traffic_ == "netrace") {
     delete CTX;
@@ -85,6 +84,9 @@ void TrafficManager::genMes(std::vector<Packet*>& packets, uint64_t cyc) {
   if (traffic_ == "all_to_all") {
     all_to_all_mess(packets);
     return;
+  } else if (traffic_ == "netrace") {
+    netrace(packets, cyc);
+    return;
   }
   double message_per_cycle = injection_rate_ * network->num_cores_ / param->packet_length;
   for (pkt_for_injection_ += message_per_cycle; pkt_for_injection_ > 1; pkt_for_injection_--) {
@@ -105,8 +107,8 @@ void TrafficManager::genMes(std::vector<Packet*>& packets, uint64_t cyc) {
       mess = bittranspose_mess();
     else if (traffic_ == "adversarial")
       mess = adversarial_mess();
-    else if (traffic_ == "dc_traces")
-      mess = dc_trace_mess();
+    else if (traffic_ == "sd_traces")
+      mess = sd_trace_mess();
     else
       mess = uniform_mess();
     packets.push_back(mess);
@@ -230,7 +232,7 @@ Packet* TrafficManager::adversarial_mess() {
                     NodeID(dest % core_per_chip, dest / core_per_chip), message_length_);
 }
 
-Packet* TrafficManager::dc_trace_mess() {
+Packet* TrafficManager::sd_trace_mess() {
   int src, dest;
   int core_number = network->num_cores_;
   // int core_per_chip = (KNode - 2) * (KNode - 2);
@@ -277,25 +279,30 @@ void TrafficManager::all_to_all_mess(std::vector<Packet*>& packets) {
 void TrafficManager::netrace(std::vector<Packet*>& vecmess, uint64_t cyc) {
   int src, dest;
   static int core_per_chip = network->chips_[0]->number_cores_;
-  nt_packet_t* trace_packet = NULL;
-  if (cyc == 0)
-    trace_packet = nt_read_packet(CTX);
-  else if (cyc % 100000000 == 0)
+  static nt_packet_t* trace_packet = nullptr;
+  if (cyc > CTX->input_trheader->num_cycles)
+    return;
+  else if ((cyc+1) % 100000000 == 0) {
     print_statistics();
-  while ((trace_packet != NULL) && (trace_packet->cycle == cyc) &&
-         (nt_get_packet_size(trace_packet) != -1)) {
+  }
+  while ((CTX->latest_active_packet_cycle == cyc)) {
+    trace_packet = nt_read_packet(CTX);
+    if (trace_packet==nullptr || nt_get_packet_size(trace_packet) == -1) {
+      nt_packet_free(trace_packet);
+      continue;
+    }
+    else if (all_message_num_ % 100000 ==0 ) nt_print_packet(trace_packet);
     src = trace_packet->src;
     dest = trace_packet->dst;
     if (src != dest) {
       int packet_length = nt_get_packet_size(trace_packet) / 8;  // 8B Bus width
-      Packet* packet = new Packet(NodeID(src % core_per_chip, src / core_per_chip),
-                         NodeID(dest % core_per_chip, dest / core_per_chip), packet_length);
+      Packet* packet =
+          new Packet(NodeID(src % core_per_chip, src / core_per_chip),
+                     NodeID(dest % core_per_chip, dest / core_per_chip), packet_length);
       vecmess.push_back(packet);
       all_message_num_++;
     }
     // Get another packet from trace
     nt_packet_free(trace_packet);
-    trace_packet = nt_read_packet(CTX);
-    if (all_message_num_ % 1000000 < 10) nt_print_packet(trace_packet);
   }
 }

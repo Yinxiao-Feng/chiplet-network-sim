@@ -14,7 +14,7 @@ System::System() {
   routing_time_ = param->routing_time;
   vc_allocating_time_ = param->vc_allocating_time;
   sw_allocating_time_ = param->sw_allocating_time;
-  microarchitecture_ = param->microarchitecture;
+  microarchitecture_ = param->router_stages;
 
   // simulation parameters
   timeout_time_ = param->timeout_threshold;
@@ -76,24 +76,31 @@ void System::routing(Packet& p) {
   assert(!p.candidate_channels_.empty());
 }
 
-void System::vc_allocate(Packet& p) {
-  // Latency for vc_allocate
+void System::vc_allocate(Packet& p) const {
+  // Latency of VC allocation
   if (p.VA_timer_ > 0) {
     p.VA_timer_--;
     return;
   }
-  for (auto& vc : p.candidate_channels_) {  // packet switching
-    if (vc.id == p.destination_) {
-      // immediately consumed upon reaching the destination, no vc is occupied
-      p.next_vc_ = vc;
-      return;
-    } else if (vc.buffer->allocate_buffer(vc.vc, p.length_)) {
-      // allocating sucess
-      p.next_vc_ = vc;
-      return;
+  VCInfo current_vc = p.head_trace();
+  if (current_vc.buffer == nullptr ||
+      current_vc.head_packet() == &p) {  // the packet is at the source or at the front of the queue
+    for (auto& vc : p.candidate_channels_) {  // packet switching
+      if (vc.id == p.destination_) {
+        // immediately consumed upon reaching the destination, no vc is occupied
+        p.next_vc_ = vc;
+        return;
+      } else {
+        if (vc.buffer->allocate_buffer(vc.vc, p.length_)) {
+          // allocating sucessed
+          p.next_vc_ = vc;
+          return;
+        }
+      }
     }
+    // allocation failed, wait for allocating again
+    p.VA_timer_ = vc_allocating_time_;
   }
-  p.VA_timer_ = vc_allocating_time_;
 }
 
 void System::switch_allocate(Packet& p) {
@@ -117,6 +124,10 @@ void System::update(Packet& p) {
   // A packet cannot be sent to itself
   assert(p.link_timer_ > 0 || p.destination_ != p.tail_trace().id);
 
+  p.trans_timer_++;
+  if (p.wait_timer_ == timeout_time_)  // timeout
+    TM->message_timeout_++;
+
   // Processing at source node before transmission (Packetization, injection, etc.)
   if (p.head_trace().id == p.source_ && p.process_timer_ > 0) {
     p.process_timer_--;
@@ -129,10 +140,6 @@ void System::update(Packet& p) {
     return;
   }
 
-  p.trans_timer_++;
-  if (p.wait_timer_ == timeout_time_)  // timeout
-    TM->message_timeout_++;
-
   // Routing -> VC allocating -> Switch allocating -> Transmission
   // switch_allocated_ is the final credit for message forwarding.
   if (p.link_timer_ == 0) {                     // reach the input buffer
@@ -144,23 +151,8 @@ void System::update(Packet& p) {
       } else if (microarchitecture_ == "ThreeStage") {
         Threestage(p);
       } else {
-        onestage(p);
+        std::cerr << "No such a microarchitecture!" << std::endl;
       }
-
-      /*switch (microarchitecture_) {
-        case Router::OneStage:
-          onestage(p);
-          break;
-        case Router::TwoStage:
-          twostage(p);
-          break;
-        case Router::ThreeStage:
-          Threestage(p);
-          break;
-        default:
-          onestage(p);
-          break;
-      }*/
       if (!p.switch_allocated_) p.wait_timer_++;
     }
   } else {
@@ -174,7 +166,7 @@ void System::update(Packet& p) {
     temp1 = p.next_vc_;
     p.wait_timer_ = 0;
     p.link_timer_ = p.next_vc_.buffer->channel_.latency;
-    //TM->traffic_map_[{p.head_trace().id.node_id, temp1.id.node_id}]++;
+    // TM->traffic_map_[{p.head_trace().id.node_id, temp1.id.node_id}]++;
     p.internal_hops_ += 1;
     p.routing_timer_ = routing_time_;
     p.VA_timer_ = vc_allocating_time_;
@@ -215,7 +207,7 @@ void System::update(Packet& p) {
     // If last flit shift, realease link
     if (temp2.id != p.tail_trace().id) {
       p.releaselink_ = true;
-      p.releasebuffer_ = temp2;
+      p.leaving_vc_ = temp2;
       if (temp2.buffer != nullptr) {
         temp2.buffer->release_buffer(temp2.vc, p.length_);
       }

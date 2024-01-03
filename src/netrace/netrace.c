@@ -58,7 +58,11 @@ void nt_open_trfile( nt_context_t* ctx, const char* trfilename ) {
 	for( i = 0; trfilename[i] != 0; i++, length++ );
 	ctx->input_popencmd = (char*) nt_checked_malloc( length * sizeof(char) );
 	sprintf( ctx->input_popencmd, "bzip2 -dc %s", trfilename );
+#ifdef WIN32
+    ctx->input_tracefile = _popen(ctx->input_popencmd, "rb");
+#else
 	ctx->input_tracefile = popen( ctx->input_popencmd, "r" );
+#endif
 	if( ctx->input_tracefile == NULL ) {
 		nt_error( "failed to open pipe to trace file" );
 	}
@@ -167,8 +171,13 @@ void nt_seek_region( nt_context_t* ctx, nt_regionhead_t* region ) {
 			nt_delete_all_dependencies( ctx );
 			// Reopen file to fast-forward to region
 			// fseek doesn't work on compressed file
+#ifdef WIN32
+			_pclose( ctx->input_tracefile );
+            ctx->input_tracefile = _popen(ctx->input_popencmd, "r");
+#else
 			pclose( ctx->input_tracefile );
 			ctx->input_tracefile = popen( ctx->input_popencmd, "r" );
+#endif
 			unsigned long long int seek_offset = nt_get_headersize( ctx ) + region->seek_offset;
 			unsigned long long int read_length = 4096;
 			char* buffer = (char*) nt_checked_malloc( read_length );
@@ -471,7 +480,11 @@ void nt_empty_cleared_packets_list( nt_context_t* ctx ) {
 
 void nt_close_trfile( nt_context_t* ctx ) {
 	if( ctx->input_tracefile != NULL ) {
+#ifdef WIN32
+        _pclose(ctx->input_tracefile);
+#else
 		pclose( ctx->input_tracefile );
+#endif
 		ctx->input_tracefile = NULL;
 		nt_free_trheader( ctx->input_trheader );
 		if( ctx->input_popencmd != NULL ) {
