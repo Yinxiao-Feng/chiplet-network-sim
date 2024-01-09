@@ -14,13 +14,13 @@ System::System() {
   routing_time_ = param->routing_time;
   vc_allocating_time_ = param->vc_allocating_time;
   sw_allocating_time_ = param->sw_allocating_time;
-  microarchitecture_ = param->router_stages;
+  router_stages_ = param->router_stages;
 
   // simulation parameters
   timeout_time_ = param->timeout_threshold;
 }
 
-System* System::New(std::string topology) {
+System* System::New(const std::string& topology) {
   System* sys_ptr;
   if (topology == "SingleChipMesh")
     sys_ptr = new SingleChipMesh;
@@ -49,21 +49,21 @@ void System::onestage(Packet& p) {
     switch_allocate(p);
 }
 
-void System::twostage(Packet& s) {
-  if (s.candidate_channels_.empty()) routing(s);
-  if (!s.candidate_channels_.empty() && s.next_vc_.buffer == nullptr)  // VC Allocating Stage
-    vc_allocate(s);
-  else if (s.next_vc_.buffer != nullptr && s.switch_allocated_ == false)  // Switch Allocating Stage
-    switch_allocate(s);
+void System::twostage(Packet& p) {
+  if (p.candidate_channels_.empty()) routing(p);
+  if (!p.candidate_channels_.empty() && p.next_vc_.buffer == nullptr)  // VC Allocating Stage
+    vc_allocate(p);
+  else if (p.next_vc_.buffer != nullptr && p.switch_allocated_ == false)  // Switch Allocating Stage
+    switch_allocate(p);
 }
 
-void System::Threestage(Packet& s) {
-  if (s.candidate_channels_.empty())  // Routing Stage
-    routing(s);
-  else if (!s.candidate_channels_.empty() && s.next_vc_.buffer == nullptr)  // VC Allocating Stage
-    vc_allocate(s);
-  else if (s.next_vc_.buffer != nullptr && s.switch_allocated_ == false)  // Switch Allocating Stage
-    switch_allocate(s);
+void System::Threestage(Packet& p) {
+  if (p.candidate_channels_.empty())  // Routing Stage
+    routing(p);
+  else if (!p.candidate_channels_.empty() && p.next_vc_.buffer == nullptr)  // VC Allocating Stage
+    vc_allocate(p);
+  else if (p.next_vc_.buffer != nullptr && p.switch_allocated_ == false)  // Switch Allocating Stage
+    switch_allocate(p);
 }
 
 void System::routing(Packet& p) {
@@ -85,18 +85,32 @@ void System::vc_allocate(Packet& p) const {
   VCInfo current_vc = p.head_trace();
   if (current_vc.buffer == nullptr ||
       current_vc.head_packet() == &p) {  // the packet is at the source or at the front of the queue
-    for (auto& vc : p.candidate_channels_) {  // packet switching
+    for (auto& vc : p.candidate_channels_) {
       if (vc.id == p.destination_) {
         // immediately consumed upon reaching the destination, no vc is occupied
         p.next_vc_ = vc;
         return;
       } else {
-        if (vc.buffer->allocate_buffer(vc.vc, p.length_)) {
-          // allocating sucessed
-          p.next_vc_ = vc;
-          return;
-        }
+        if (vc.buffer->is_empty(vc.vc))  // try to allocate a free vc
+          if (vc.buffer->allocate_buffer(vc.vc, p.length_)) {
+            // allocating sucessed
+            p.next_vc_ = vc;
+            return;
+          }
       }
+    }
+    for (auto& vc : p.candidate_channels_) {  // packet switching
+                                              // if (vc.id == p.destination_) {
+      //   // immediately consumed upon reaching the destination, no vc is occupied
+      //   p.next_vc_ = vc;
+      //   return;
+      // } else {
+      if (vc.buffer->allocate_buffer(vc.vc, p.length_)) {
+        // allocating sucessed
+        p.next_vc_ = vc;
+        return;
+      }
+      //}
     }
     // allocation failed, wait for allocating again
     p.VA_timer_ = vc_allocating_time_;
@@ -144,18 +158,18 @@ void System::update(Packet& p) {
   // switch_allocated_ is the final credit for message forwarding.
   if (p.link_timer_ == 0) {                     // reach the input buffer
     if (p.head_trace().id != p.destination_) {  // not reach destination
-      if (microarchitecture_ == "OneStage") {
+      if (router_stages_ == "OneStage") {
         onestage(p);
-      } else if (microarchitecture_ == "TwoStage") {
+      } else if (router_stages_ == "TwoStage") {
         twostage(p);
-      } else if (microarchitecture_ == "ThreeStage") {
+      } else if (router_stages_ == "ThreeStage") {
         Threestage(p);
       } else {
         std::cerr << "No such a microarchitecture!" << std::endl;
       }
       if (!p.switch_allocated_) p.wait_timer_++;
     }
-  } else {
+  } else {  // flying in the link
     p.link_timer_--;
   }
 
@@ -166,8 +180,15 @@ void System::update(Packet& p) {
     temp1 = p.next_vc_;
     p.wait_timer_ = 0;
     p.link_timer_ = p.next_vc_.buffer->channel_.latency;
-    // TM->traffic_map_[{p.head_trace().id.node_id, temp1.id.node_id}]++;
-    p.internal_hops_ += 1;
+#ifdef DEBUG
+    TM->traffic_map_[temp1.buffer]++;
+#endif  // DEBUG
+    if (temp1.buffer->channel_ == on_chip_channel)
+      p.internal_hops_++;
+    else if (temp1.buffer->channel_ == off_chip_parallel_channel)
+      p.parallel_hops_++;
+    else if (temp1.buffer->channel_ == off_chip_serial_channel)
+      p.serial_hops_++;
     p.routing_timer_ = routing_time_;
     p.VA_timer_ = vc_allocating_time_;
     p.SA_timer_ = sw_allocating_time_;
@@ -180,7 +201,7 @@ void System::update(Packet& p) {
     while (i < p.length_ && p.flit_trace_[i].id == temp1.id) i++;
   }
 
-  if (i < p.length_) {
+  if (i < p.length_) {  // there is flits fall behind
     temp2 = p.flit_trace_[i];
     int k = temp1.buffer->channel_.width;  // linkwidth
     int j = 0;

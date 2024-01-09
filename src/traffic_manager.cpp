@@ -32,11 +32,15 @@ TrafficManager::TrafficManager() {
   total_internal_hops_.store(0);
   total_parallel_hops_.store(0);
   total_serial_hops_.store(0);
-  // for (int i = 0; i < network->chips_[0]->number_nodes_; i++) {
-  //   for (int j = 0; j < network->chips_[0]->number_nodes_; j++) {
-  //     traffic_map_[{i, j}] = 0;
-  //   }
-  // }
+#ifdef DEBUG
+  for (auto &chip:network->chips_) {
+	for (auto &node:chip->nodes_) {
+	  for (auto &buf:node->in_buffers_) {
+		traffic_map_[buf].store(0);
+	  }
+	}
+  }
+#endif  // DEBUG
 }
 
 TrafficManager::~TrafficManager() {
@@ -78,6 +82,17 @@ void TrafficManager::print_statistics() {
             << "   Serial Hops: " << average_serial_hops << std::endl;
   output_ << injection_rate_ << "," << ((float)total_cycles_ / message_arrived_) << ","
           << receiving_rate() << std::endl;
+#ifdef DEBUG
+  //int max = 0;
+  //Buffer* max_buf = nullptr;
+  //for (auto& i : traffic_map_) {
+  //  if (i.second > max) {
+  //    max = i.second;
+  //    max_buf = i.first;
+  //  }
+  //}
+  //std::cout << "Max traffic: " << max << " at " << max_buf->node_->id_ << std::endl;
+#endif  // DEBUG
 }
 
 void TrafficManager::genMes(std::vector<Packet*>& packets, uint64_t cyc) {
@@ -88,7 +103,7 @@ void TrafficManager::genMes(std::vector<Packet*>& packets, uint64_t cyc) {
     netrace(packets, cyc);
     return;
   }
-  double message_per_cycle = injection_rate_ * network->num_cores_ / param->packet_length;
+  float message_per_cycle = injection_rate_ * network->num_cores_ / param->packet_length;
   for (pkt_for_injection_ += message_per_cycle; pkt_for_injection_ > 1; pkt_for_injection_--) {
     Packet* mess;
     if (traffic_ == "test")
@@ -149,7 +164,7 @@ Packet* TrafficManager::bitcomplement_mess() {
   int src, dest;
   // int core_number = network->num_cores_;
   int core_number = network->chips_[0]->number_cores_ * 9;
-  int bits = floor(log2(core_number));
+  int bits = (int)floor(log2(core_number));
   int core_per_chip = network->chips_[0]->number_cores_;
   while (true) {
     src = gen() % core_number;
@@ -166,7 +181,7 @@ Packet* TrafficManager::bitreverse_mess() {
   int src, dest;
   // int core_number = network->num_cores_;
   int core_number = network->chips_[0]->number_cores_ * 9;
-  int bits = floor(log2(core_number));
+  int bits = (int)floor(log2(core_number));
   int core_per_chip = network->chips_[0]->number_cores_;
   while (true) {
     src = gen() % core_number;
@@ -186,7 +201,7 @@ Packet* TrafficManager::bitshuffle_mess() {
   int src, dest;
   int core_number = network->chips_[0]->number_cores_ * 9;
   // int core_number = network->num_cores_;
-  int bits = floor(log2(core_number));
+  int bits = (int)floor(log2(core_number));
   int core_per_chip = network->chips_[0]->number_cores_;
   while (true) {
     src = gen() % core_number;
@@ -205,7 +220,7 @@ Packet* TrafficManager::bittranspose_mess() {
   int src, dest;
   int core_number = network->chips_[0]->number_cores_ * 9;
   // int core_number = network->num_cores_;
-  int bits = floor(log2(core_number));
+  int bits = (int)floor(log2(core_number));
   int core_per_chip = network->chips_[0]->number_cores_;
   while (true) {
     src = gen() % core_number;
@@ -253,7 +268,7 @@ Packet* TrafficManager::sd_trace_mess() {
 }
 
 void TrafficManager::all_to_all_mess(std::vector<Packet*>& packets) {
-  double message_per_cycle = injection_rate_ * network->num_cores_ / param->packet_length;
+  float message_per_cycle = injection_rate_ * network->num_cores_ / param->packet_length;
   int core_number = network->num_cores_;
   int core_per_chip = network->chips_[0]->number_cores_;
   int src, dest1, dest2;
@@ -282,16 +297,16 @@ void TrafficManager::netrace(std::vector<Packet*>& vecmess, uint64_t cyc) {
   static nt_packet_t* trace_packet = nullptr;
   if (cyc > CTX->input_trheader->num_cycles)
     return;
-  else if ((cyc+1) % 100000000 == 0) {
+  else if ((cyc + 1) % 100000000 == 0) {
     print_statistics();
   }
   while ((CTX->latest_active_packet_cycle == cyc)) {
     trace_packet = nt_read_packet(CTX);
-    if (trace_packet==nullptr || nt_get_packet_size(trace_packet) == -1) {
+    if (trace_packet == nullptr || nt_get_packet_size(trace_packet) == -1) {
       nt_packet_free(trace_packet);
       continue;
-    }
-    else if (all_message_num_ % 100000 ==0 ) nt_print_packet(trace_packet);
+    } else if (all_message_num_ % 100000 == 0)
+      nt_print_packet(trace_packet);
     src = trace_packet->src;
     dest = trace_packet->dst;
     if (src != dest) {

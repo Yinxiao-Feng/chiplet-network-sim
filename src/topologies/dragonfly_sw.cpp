@@ -7,9 +7,9 @@ ChipSwitch::ChipSwitch(int sw_radix, int num_core, int vc_num, int buffer_size) 
   group_id_ = 0;
   nodes_.reserve(number_nodes_);
   for (int i = 0; i < number_cores_; i++) {
-    nodes_.push_back(new Node(1, vc_num, buffer_size, on_chip_channel));
+    nodes_.push_back(new Node(1, vc_num, buffer_size, off_chip_serial_channel));
   }
-  nodes_.push_back(new Node(switch_radix_, vc_num, buffer_size, on_chip_channel));
+  nodes_.push_back(new Node(switch_radix_, vc_num, buffer_size, off_chip_serial_channel));
 }
 
 ChipSwitch::~ChipSwitch() {
@@ -44,8 +44,9 @@ DragonflySW::DragonflySW() : num_switch_(num_chips_), switches_(chips_) {
   num_switch_ = num_group_ * sw_per_group_;
   num_cores_ = num_switch_ * cores_per_sw_;
   num_nodes_ = num_switch_ * (cores_per_sw_ + 1);
+  assert(param->vc_number>=2);
   std::cout << "n_per_s:" << cores_per_sw_ << " s_per_g:" << sw_per_group_ << " g:" << num_group_
-            << std::endl;
+            << " num_cores:" << num_cores_ << std::endl;
   algorithm_ = param->routing_algorithm;
   switches_.reserve(num_switch_);
   for (int sw_id = 0; sw_id < num_switch_; sw_id++) {
@@ -137,6 +138,8 @@ void DragonflySW::MIN_routing(Packet& s) {
 
   if (current->id_.node_id != cores_per_sw_) {  // current node is core
     VCInfo vc(current->link_buffers_[0], 0);
+    s.candidate_channels_.push_back(vc);
+    vc = VCInfo(current->link_buffers_[0], 1);
     s.candidate_channels_.push_back(vc);
   }
   // current node is switch

@@ -1,4 +1,5 @@
 #include "node.h"
+#include "buffer.h"
 
 std::ostream& operator<<(std::ostream& s, const NodeID& id) {
   s << "NodeID:" << id.node_id << " ChipID:" << id.chip_id;

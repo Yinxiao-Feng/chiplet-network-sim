@@ -17,15 +17,16 @@ static std::mutex* mtxs;
 static volatile bool* thread_ready;
 static volatile bool* task_ready;
 
-// void run_one_cycle(std::vector<Packet*>& vecmess, System* s);
-// void update_packets(std::vector<Packet*>& packets, System* s);
-
 static void update_packets(std::vector<Packet*>& packets, System* system) {
   uint64_t i = pkt_i.load();
   uint64_t vec_size = packets.size();
-  while (i < vec_size) {
-    if (pkt_i.compare_exchange_strong(i, i + 1)) {
-      system->update(*packets[i]);
+   int depth = param->issue_width;
+   while (i < vec_size) {
+    if (pkt_i.compare_exchange_strong(i, i + depth)) {
+       uint64_t max_i = std::min(i + depth, vec_size);
+      do {
+        system->update(*packets[i]);
+      } while (++i < max_i);
       i = pkt_i.load();
     }
   }
@@ -62,7 +63,7 @@ static void run_one_cycle(std::vector<Packet*>& vec_pkts, System* system) {
   }
   vec_pkts.resize(j);
 
-  pkt_i.store(0);
+   pkt_i.store(0);
   if (vec_pkts.size() < param->threads * 1 || param->threads < 2) {
     update_packets(vec_pkts, system);
   } else {
@@ -143,7 +144,7 @@ int main(int argc, char* argv[]) {
                   << "Saturation point!" << std::endl
                   << "Maximum average receiving traffic: " << maximum_receiving_rate
                   << " flits/(node*cycle)" << std::endl;
-#ifdef _DEBUG
+#ifdef DEBUG
         for (uint64_t i = 0; i < param->simulation_time * 2; i++) {  // try to drain
           run_one_cycle(all_packets, network);
           if (all_packets.size() == 0) {
@@ -151,8 +152,7 @@ int main(int argc, char* argv[]) {
             break;
           }
         }
-        if (all_packets.size() != 0)
-          std::cerr << "Possible Deadlock!" << std::endl;
+        if (all_packets.size() != 0) std::cerr << "Possible Deadlock!" << std::endl;
 #endif  // DEBUG
         break;
       }

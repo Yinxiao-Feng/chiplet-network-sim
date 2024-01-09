@@ -4,7 +4,7 @@
 
 #include "system.h"
 extern "C" {
-#include "netrace/netrace.h"
+#include "netrace.h"
 }
 
 class TrafficManager {
@@ -38,7 +38,7 @@ class TrafficManager {
   std::string traffic_;
   int message_length_;
 
-  //std::map<std::pair<int, int>, uint64_t> traffic_map_;
+  std::unordered_map<Buffer*, std::atomic_uint64_t> traffic_map_;
   float pkt_for_injection_;
   // atomic statistics, modified by all threds
   std::chrono::system_clock::time_point time_;

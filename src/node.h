@@ -1,7 +1,8 @@
 #pragma once
 
-#include "buffer.h"
+#include "config.h"
 
+class Buffer;
 class Chip;
 
 struct NodeID {

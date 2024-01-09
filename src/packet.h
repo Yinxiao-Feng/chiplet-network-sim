@@ -1,22 +1,5 @@
 #pragma once
-#include "node.h"
-
-struct VCInfo {
-  VCInfo(Buffer* buffer_ = nullptr, int vc_ = 0, NodeID id_ = NodeID()) {
-    buffer = buffer_;
-    vc = vc_;
-    if (buffer_ != nullptr)
-      id = buffer->node_->id_;
-    else
-      id = id_;
-  }
-  NodeID id;
-  Buffer* buffer;  // point to the buffer occupying, such as bufferxneg......
-  int vc;          // which VC channel
-
-  inline bool operator==(const VCInfo& vcb) const { return (id == vcb.id && vc == vcb.vc); }
-  inline Packet* head_packet() const { return buffer->head_packet(vc); }
-};
+#include "buffer.h"
 
 class Packet {
  public:
@@ -25,8 +8,8 @@ class Packet {
     s << "Source:" << m->source_ << " Destination:" << m->destination_ << std::endl;
     return s;
   }
-  inline VCInfo head_trace() const { return flit_trace_[0]; };
-  inline VCInfo tail_trace() const { return flit_trace_[length_ - 1]; };
+  inline const VCInfo& head_trace() const { return flit_trace_[0]; };
+  inline const VCInfo& tail_trace() const { return flit_trace_[length_ - 1]; };
 
   NodeID source_;
   NodeID destination_;

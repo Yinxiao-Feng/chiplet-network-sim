@@ -33,7 +33,7 @@ bld/
 [Ll]og/
 [Ll]ogs/
 
-build/
+builds/
 output/
 input/data
 # Visual Studio 2015/2017 cache/options directory

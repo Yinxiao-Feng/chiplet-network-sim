@@ -5,46 +5,34 @@
       "generator": "Ninja",
       "configurationType": "Debug",
       "inheritEnvironments": [ "msvc_x64_x64" ],
-      "buildRoot": "${projectDir}\\build\\${name}",
-      "installRoot": "${projectDir}\\install\\${name}",
-      "cmakeCommandArgs": "",
-      "buildCommandArgs": "",
-      "ctestCommandArgs": ""
+      "buildRoot": "${projectDir}\\builds\\${name}",
+      "installRoot": "${projectDir}\\install\\${name}"
     },
     {
       "name": "x64-Release",
       "generator": "Ninja",
       "configurationType": "Release",
-      "buildRoot": "${projectDir}\\build\\${name}",
+      "buildRoot": "${projectDir}\\builds\\${name}",
       "installRoot": "${projectDir}\\install\\${name}",
-      "cmakeCommandArgs": "",
-      "buildCommandArgs": "",
+      "inheritEnvironments": [ "msvc_x64_x64" ]
+    },
+    {
+      "name": "x64-RelWithDebInfo",
+      "generator": "Ninja",
+      "configurationType": "RelWithDebInfo",
+      "buildRoot": "${projectDir}\\builds\\${name}",
+      "installRoot": "${projectDir}\\install\\${name}",
       "inheritEnvironments": [ "msvc_x64_x64" ]
     },
     {
       "name": "WSL-GCC-Release",
       "generator": "Ninja",
       "configurationType": "RelWithDebInfo",
-      "buildRoot": "${projectDir}\\build\\${name}",
+      "buildRoot": "${projectDir}\\builds\\${name}",
       "installRoot": "${projectDir}\\install\\${name}",
       "cmakeExecutable": "cmake",
-      "cmakeCommandArgs": "",
-      "buildCommandArgs": "",
-      "ctestCommandArgs": "",
       "inheritEnvironments": [ "linux_x64" ],
       "wslPath": "${defaultWSLPath}"
-    },
-    {
-      "name": "x64-RelWithDebInfo",
-      "generator": "Ninja",
-      "configurationType": "RelWithDebInfo",
-      "buildRoot": "${projectDir}\\build\\${name}",
-      "installRoot": "${projectDir}\\out\\install\\${name}",
-      "cmakeCommandArgs": "",
-      "buildCommandArgs": "",
-      "ctestCommandArgs": "",
-      "inheritEnvironments": [ "msvc_x64_x64" ],
-      "variables": []
     }
   ]
 }

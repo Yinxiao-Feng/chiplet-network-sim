@@ -22,7 +22,7 @@ NodeInCG::NodeInCG(int k_chiplet, int vc_num, int buffer_size)
   // for (int i = 0; i < 4; i++) {
   //   in_buffers_[i]->channel_.width = 2;
   // }
-  in_buffers_[4]->channel_ = off_chip_channel;
+  in_buffers_[4]->channel_ = off_chip_serial_channel;
 }
 
 void NodeInCG::set_node(Chip* cgroup, NodeID id) {

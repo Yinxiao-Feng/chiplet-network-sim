@@ -9,6 +9,7 @@ Buffer::Buffer() {
   link_used_.store(false);
   vc_buffer_ = nullptr;
   vc_queue_ = nullptr;
+  vc_head_packet = nullptr;
 }
 
 Buffer::Buffer(Node* node, int vc_num, int buffer_size, Channel channel) {
@@ -19,10 +20,12 @@ Buffer::Buffer(Node* node, int vc_num, int buffer_size, Channel channel) {
   link_used_.store(false);
   vc_buffer_ = new std::atomic_int[vc_num_];
   vc_queue_ = new std::queue<Packet*>[vc_num_];
+  vc_head_packet = new std::atomic<Packet*>[vc_num_];
   for (int i = 0; i < vc_num_; ++i) {
     // vc_buffer_.push_back(buffer_size);
     vc_buffer_[i].store(buffer_size);
     vc_queue_[i] = std::queue<Packet*>();
+    vc_head_packet[i].store(nullptr);
   }
 }
 
@@ -52,8 +55,11 @@ bool Buffer::allocate_link(Packet& p) {
   if (link_used)
     return false;
   else if (link_used_.compare_exchange_strong(link_used, true)) {  // link_used == false
-    if (node_->id_ != p.destination_) {
-      vc_queue_[p.next_vc_.vc].push(&p);
+    if (node_->id_ != p.destination_) {  // only one thread win the link allocation
+      if (vc_head_packet[p.next_vc_.vc] != nullptr)
+        vc_queue_[p.next_vc_.vc].push(&p);
+      else
+        vc_head_packet[p.next_vc_.vc].store(&p);
     }
     return true;
   } else  // allocation failed, link is allocated by other threads(packets)
@@ -61,15 +67,21 @@ bool Buffer::allocate_link(Packet& p) {
 }
 
 void Buffer::release_link(Packet& p) {
-  bool link_used = true;
-  if (link_used_.compare_exchange_strong(link_used, false)) {
-    VCInfo releasing_vc = p.leaving_vc_;
-    if (releasing_vc.buffer != nullptr) {
-      assert(releasing_vc.head_packet() == &p);
-      releasing_vc.buffer->vc_queue_[releasing_vc.vc].pop();
-    }
-  };
-  return;
+  assert(link_used_);
+  link_used_.store(false);
+  // release head in former buffer
+  Buffer* buffer = p.leaving_vc_.buffer;
+  int vc = p.leaving_vc_.vc;
+  if (buffer != nullptr) {
+    assert(p.leaving_vc_.head_packet() == &p);
+    if (!buffer->vc_queue_[vc].empty()) {
+      buffer->vc_head_packet[vc].store(buffer->vc_queue_[vc].front());
+      buffer->vc_queue_[vc].pop();
+    } else
+      buffer->vc_head_packet[vc].store(nullptr);
+    // releasing_vc.buffer->vc_queue_[releasing_vc.vc].pop();
+  }
+  // p.leaving_vc_.release_head();
 }
 
 void Buffer::clear_buffer() {
@@ -77,5 +89,29 @@ void Buffer::clear_buffer() {
   for (int i = 0; i < vc_num_; ++i) {
     vc_buffer_[i].store(buffer_size_);
     while (!vc_queue_[i].empty()) vc_queue_[i].pop();
+    vc_head_packet[i].store(nullptr);
   }
 }
+
+VCInfo::VCInfo(Buffer* buffer_, int vc_, NodeID id_) {
+  buffer = buffer_;
+  vc = vc_;
+  if (buffer_ != nullptr)
+    id = buffer->node_->id_;
+  else
+    id = id_;
+}
+
+Packet* VCInfo::head_packet() const { return buffer->head_packet(vc); }
+
+// void VCInfo::release_head() const {
+//   {
+//     if (buffer != nullptr) {
+//       if (!buffer->vc_queue_[vc].empty()) {
+//         buffer->vc_head_packet[vc].store(buffer->vc_queue_[vc].front());
+//         buffer->vc_queue_[vc].pop();
+//       } else
+//         buffer->vc_head_packet[vc].store(nullptr);
+//     }
+//   };
+// }

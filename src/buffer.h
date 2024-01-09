@@ -2,10 +2,20 @@
 #include <atomic>
 #include <queue>
 
-#include "config.h"
+#include "node.h"
 
-class Node;
 class Packet;
+class Buffer;
+
+struct VCInfo {
+  VCInfo(Buffer* buffer_ = nullptr, int vc_ = 0, NodeID id_ = NodeID());
+  NodeID id;
+  Buffer* buffer;  // point to the buffer occupying, such as bufferxneg......
+  int vc;          // which VC channel
+
+  inline bool operator==(const VCInfo& vcb) const { return (id == vcb.id && vc == vcb.vc); }
+  Packet* head_packet() const;
+};
 
 class Buffer {
  public:
@@ -17,7 +27,8 @@ class Buffer {
   void release_buffer(int vcb, int n);
   bool allocate_link(Packet&);
   void release_link(Packet&);
-  inline Packet* head_packet(int vcb) { return vc_queue_[vcb].front(); }
+  inline Packet* head_packet(int vcb) { return vc_head_packet[vcb].load(); }
+  inline bool is_empty(int vcb) { return vc_head_packet[vcb].load() == nullptr; }
   void clear_buffer();
 
   // Point to the node where the buffer is located.
@@ -37,4 +48,5 @@ class Buffer {
   std::atomic_int* vc_buffer_;
   // record the packet order for each VC, only the head packet can be sent
   std::queue<Packet*>* vc_queue_;
+  std::atomic<Packet*>* vc_head_packet;
 };

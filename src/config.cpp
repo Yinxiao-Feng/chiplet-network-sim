@@ -25,11 +25,12 @@ Parameters::Parameters(const std::string &config_file) {
   traffic = params.get<std::string>("Workload.traffic", "uniform");
   packet_length = params.get<int>("Workload.packet_length", 1);
 
-  injection_increment = params.get<double>("Simulation.injection_increment", 0.1);
+  injection_increment = params.get<float>("Simulation.injection_increment", 0.1);
   simulation_time = params.get<uint64_t>("Simulation.simulation_time", 10000);
   timeout_threshold = params.get<int>("Simulation.timeout_threshold", 200);
   timeout_limit = params.get<int>("Simulation.timeout_limit", 100);
   threads = params.get<int>("Simulation.threads", 0);
+  issue_width = params.get<int>("Simulation.issue_width", 10);
 
   if (traffic == "sd_traces")
     trace_file = params.get<std::string>("Files.trace_file");

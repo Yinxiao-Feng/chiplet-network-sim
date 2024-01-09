@@ -20,10 +20,17 @@ struct Channel {
   Channel(int link_width = 0, int link_latency = 0) : width(link_width), latency(link_latency) {}
   int width;  // Link (bandwidth) can allocated at flit (1 flit/cycle) granularity.
   int latency;
+  inline bool operator==(const Channel& ch) const {
+    return (width == ch.width && latency == ch.latency);
+  }
+  inline bool operator!=(const Channel& ch) const {
+    return (width != ch.width || latency != ch.latency);
+  }
 };
 
 const Channel on_chip_channel(1, 0);
-const Channel off_chip_channel(1, 4);
+const Channel off_chip_parallel_channel(1, 1);
+const Channel off_chip_serial_channel(1, 2);
 
 struct Parameters {
  public:
@@ -55,6 +62,7 @@ struct Parameters {
   int timeout_threshold;
   int timeout_limit;
   int threads;
+  int issue_width;
 
   // I/O Files
   std::string trace_file, netrace_file, output_file, log_file;

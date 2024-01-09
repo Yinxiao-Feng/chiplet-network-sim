@@ -5,7 +5,7 @@
 class System {
  public:
   System();
-  static System* New(std::string);
+  static System* New(const std::string&);
   virtual ~System() {}
   virtual void reset();
   // Message* genMes();
@@ -34,7 +34,7 @@ class System {
   int routing_time_;
   int vc_allocating_time_;
   int sw_allocating_time_;
-  std::string microarchitecture_;
+  std::string router_stages_;
 
   // simulation parameters
   int timeout_time_;
