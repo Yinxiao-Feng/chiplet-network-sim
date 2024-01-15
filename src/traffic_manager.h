@@ -14,6 +14,7 @@ class TrafficManager {
   void reset();
   void genMes(std::vector<Packet*>& packets, uint64_t cyc = 0);
   Packet* uniform_mess();
+  Packet* intra_group_mess();
   Packet* hotspot_mess();
   Packet* bitcomplement_mess();
   Packet* bitreverse_mess();

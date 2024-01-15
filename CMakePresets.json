@@ -3,7 +3,7 @@
     "configurePresets": [
         {
             "name": "Linux-Release",
-            "displayName": "GCC 11.3.0 x86_64-linux-gnu Release",
+            "displayName": "GCC x86_64-linux-gnu Release",
             "description": "C = /usr/bin/gcc, CXX = /usr/bin/g++",
             "generator": "Ninja",
             "binaryDir": "${sourceDir}/builds/${presetName}",
@@ -16,7 +16,7 @@
         },
         {
             "name": "Linux-Debug",
-            "displayName": "GCC 11.3.0 x86_64-linux-gnu Debug",
+            "displayName": "GCC x86_64-linux-gnu Debug",
             "description": "C = /usr/bin/gcc, CXX = /usr/bin/g++",
             "generator": "Ninja",
             "binaryDir": "${sourceDir}/builds/${presetName}",

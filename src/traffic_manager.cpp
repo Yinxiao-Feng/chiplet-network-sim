@@ -33,12 +33,12 @@ TrafficManager::TrafficManager() {
   total_parallel_hops_.store(0);
   total_serial_hops_.store(0);
 #ifdef DEBUG
-  for (auto &chip:network->chips_) {
-	for (auto &node:chip->nodes_) {
-	  for (auto &buf:node->in_buffers_) {
-		traffic_map_[buf].store(0);
-	  }
-	}
+  for (auto& chip : network->chips_) {
+    for (auto& node : chip->nodes_) {
+      for (auto& buf : node->in_buffers_) {
+        traffic_map_[buf].store(0);
+      }
+    }
   }
 #endif  // DEBUG
 }
@@ -83,15 +83,15 @@ void TrafficManager::print_statistics() {
   output_ << injection_rate_ << "," << ((float)total_cycles_ / message_arrived_) << ","
           << receiving_rate() << std::endl;
 #ifdef DEBUG
-  //int max = 0;
-  //Buffer* max_buf = nullptr;
-  //for (auto& i : traffic_map_) {
-  //  if (i.second > max) {
-  //    max = i.second;
-  //    max_buf = i.first;
-  //  }
-  //}
-  //std::cout << "Max traffic: " << max << " at " << max_buf->node_->id_ << std::endl;
+  // int max = 0;
+  // Buffer* max_buf = nullptr;
+  // for (auto& i : traffic_map_) {
+  //   if (i.second > max) {
+  //     max = i.second;
+  //     max_buf = i.first;
+  //   }
+  // }
+  // std::cout << "Max traffic: " << max << " at " << max_buf->node_->id_ << std::endl;
 #endif  // DEBUG
 }
 
@@ -107,9 +107,11 @@ void TrafficManager::genMes(std::vector<Packet*>& packets, uint64_t cyc) {
   for (pkt_for_injection_ += message_per_cycle; pkt_for_injection_ > 1; pkt_for_injection_--) {
     Packet* mess;
     if (traffic_ == "test")
-      mess = new Packet(NodeID(0, 0), NodeID(3, 0), message_length_);
+      mess = new Packet(NodeID(0, 0), NodeID(0, 8), message_length_);
     else if (traffic_ == "uniform")
       mess = uniform_mess();
+    else if (traffic_ == "intra_group")
+      mess = intra_group_mess();
     else if (traffic_ == "hotspot")
       mess = hotspot_mess();
     else if (traffic_ == "bitcomplement")
@@ -125,7 +127,7 @@ void TrafficManager::genMes(std::vector<Packet*>& packets, uint64_t cyc) {
     else if (traffic_ == "sd_traces")
       mess = sd_trace_mess();
     else
-      mess = uniform_mess();
+      std::cerr << "Unknown traffic pattern!" << std::endl;
     packets.push_back(mess);
     all_message_num_++;
   }
@@ -138,6 +140,21 @@ Packet* TrafficManager::uniform_mess() {
   while (true) {
     src = gen() % core_number;
     dest = gen() % core_number;
+    if (dest != src) break;
+  }
+  return new Packet(NodeID(src % core_per_chip, src / core_per_chip),
+                    NodeID(dest % core_per_chip, dest / core_per_chip), message_length_);
+}
+
+Packet* TrafficManager::intra_group_mess() {
+  int src, dest;
+  int core_per_chip = network->chips_[0]->number_cores_;
+  int core_number = network->num_cores_;
+  while (true) {
+    // src = gen() % core_number;
+    // dest = gen() % core_number;
+    src = gen() % (core_number / 41);
+    dest = gen() % (core_number / 41);
     if (dest != src) break;
   }
   return new Packet(NodeID(src % core_per_chip, src / core_per_chip),
@@ -179,18 +196,18 @@ Packet* TrafficManager::bitcomplement_mess() {
 
 Packet* TrafficManager::bitreverse_mess() {
   int src, dest;
-  // int core_number = network->num_cores_;
-  int core_number = network->chips_[0]->number_cores_ * 9;
-  int bits = (int)floor(log2(core_number));
+  int core_number = network->num_cores_;
+  int core_num_per_group = network->chips_[0]->number_cores_ * 8;
+  int bits = (int)floor(log2(core_num_per_group));
   int core_per_chip = network->chips_[0]->number_cores_;
   while (true) {
-    src = gen() % core_number;
+    src = gen() % core_num_per_group;
     boost::dynamic_bitset<> src_binary(bits, src);
     boost::dynamic_bitset<> dest_binary(bits);
     for (int i = 0; i < bits; ++i) {
       dest_binary[i] = src_binary[bits - 1 - i];
     }
-    dest = dest_binary.to_ulong();
+    dest = dest_binary.to_ulong() % core_num_per_group;
     if (dest != src) break;
   }
   return new Packet(NodeID(src % core_per_chip, src / core_per_chip),
@@ -199,17 +216,17 @@ Packet* TrafficManager::bitreverse_mess() {
 
 Packet* TrafficManager::bitshuffle_mess() {
   int src, dest;
-  int core_number = network->chips_[0]->number_cores_ * 9;
+  int core_num_per_group = network->chips_[0]->number_cores_ * 8;
   // int core_number = network->num_cores_;
-  int bits = (int)floor(log2(core_number));
+  int bits = (int)floor(log2(core_num_per_group));
   int core_per_chip = network->chips_[0]->number_cores_;
   while (true) {
-    src = gen() % core_number;
+    src = gen() % core_num_per_group;
     boost::dynamic_bitset<> src_binary(bits, src);
     bool last_bit = src_binary[bits - 1];
     boost::dynamic_bitset<> dest_binary = src_binary << 1;
     dest_binary[0] = last_bit;
-    dest = dest_binary.to_ulong();
+    dest = dest_binary.to_ulong() % core_num_per_group;
     if (dest != src) break;
   }
   return new Packet(NodeID(src % core_per_chip, src / core_per_chip),
@@ -218,18 +235,18 @@ Packet* TrafficManager::bitshuffle_mess() {
 
 Packet* TrafficManager::bittranspose_mess() {
   int src, dest;
-  int core_number = network->chips_[0]->number_cores_ * 9;
+  int core_num_per_group = network->chips_[0]->number_cores_ * 8;
   // int core_number = network->num_cores_;
-  int bits = (int)floor(log2(core_number));
+  int bits = (int)floor(log2(core_num_per_group));
   int core_per_chip = network->chips_[0]->number_cores_;
   while (true) {
-    src = gen() % core_number;
+    src = gen() % core_num_per_group;
     boost::dynamic_bitset<> src_binary(bits, src);
     boost::dynamic_bitset<> dest_binary(bits);
     for (int i = 0; i < bits; ++i) {
       dest_binary[i] = src_binary[(i + bits / 2) % bits];
     }
-    dest = dest_binary.to_ulong();
+    dest = dest_binary.to_ulong() % core_num_per_group;
     if (dest != src) break;
   }
   return new Packet(NodeID(src % core_per_chip, src / core_per_chip),
@@ -276,8 +293,8 @@ void TrafficManager::all_to_all_mess(std::vector<Packet*>& packets) {
        pkt_for_injection_ -= core_number * 2) {
     for (int n = 0; n < core_number; n++) {
       src = n;
-      dest1 = (n - 1 + core_number) % core_number;
-      dest2 = (n + 1) % core_number;
+      dest1 = (n - 6 + core_number) % core_number;
+      dest2 = (n + 6) % core_number;
       Packet* mess =
           new Packet(NodeID(src % core_per_chip, src / core_per_chip),
                      NodeID(dest1 % core_per_chip, dest1 / core_per_chip), message_length_);
@@ -302,18 +319,21 @@ void TrafficManager::netrace(std::vector<Packet*>& vecmess, uint64_t cyc) {
   }
   while ((CTX->latest_active_packet_cycle == cyc)) {
     trace_packet = nt_read_packet(CTX);
-    if (trace_packet == nullptr || nt_get_packet_size(trace_packet) == -1) {
+    if (trace_packet == nullptr)
+      return;
+    else if (nt_get_packet_size(trace_packet) == -1) {
       nt_packet_free(trace_packet);
       continue;
-    } else if (all_message_num_ % 100000 == 0)
+    } else if (all_message_num_ % 10000000 == 0)
       nt_print_packet(trace_packet);
     src = trace_packet->src;
     dest = trace_packet->dst;
     if (src != dest) {
-      int packet_length = nt_get_packet_size(trace_packet) / 8;  // 8B Bus width
-      Packet* packet =
-          new Packet(NodeID(src % core_per_chip, src / core_per_chip),
-                     NodeID(dest % core_per_chip, dest / core_per_chip), packet_length);
+      int packet_length = ceil((float)nt_get_packet_size(trace_packet) / 16);  // 16B Bus width
+      // Packet* packet =
+      //     new Packet(NodeID(src % core_per_chip, src / core_per_chip),
+      //                NodeID(dest % core_per_chip, dest / core_per_chip), packet_length);
+      Packet* packet = new Packet(network->id2nodeid(src), network->id2nodeid(dest), packet_length);
       vecmess.push_back(packet);
       all_message_num_++;
     }

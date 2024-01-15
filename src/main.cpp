@@ -20,10 +20,10 @@ static volatile bool* task_ready;
 static void update_packets(std::vector<Packet*>& packets, System* system) {
   uint64_t i = pkt_i.load();
   uint64_t vec_size = packets.size();
-   int depth = param->issue_width;
-   while (i < vec_size) {
-    if (pkt_i.compare_exchange_strong(i, i + depth)) {
-       uint64_t max_i = std::min(i + depth, vec_size);
+  static int issue_width = param->issue_width;
+  while (i < vec_size) {
+    if (pkt_i.compare_exchange_strong(i, i + issue_width)) {
+      uint64_t max_i = std::min(i + issue_width, vec_size);
       do {
         system->update(*packets[i]);
       } while (++i < max_i);
@@ -63,7 +63,7 @@ static void run_one_cycle(std::vector<Packet*>& vec_pkts, System* system) {
   }
   vec_pkts.resize(j);
 
-   pkt_i.store(0);
+  pkt_i.store(0);
   if (vec_pkts.size() < param->threads * 1 || param->threads < 2) {
     update_packets(vec_pkts, system);
   } else {
@@ -124,8 +124,8 @@ int main(int argc, char* argv[]) {
     while (true) {
       TM->injection_rate_ += param->injection_increment;
 
-      //  warm up for 1% of the simulation time
-      for (uint64_t i = 0; i < param->simulation_time / 100; i++) {
+      //  warm up for 10% of the simulation time
+      for (uint64_t i = 0; i < param->simulation_time / 10; i++) {
         TM->genMes(all_packets);
         run_one_cycle(all_packets, network);
       }

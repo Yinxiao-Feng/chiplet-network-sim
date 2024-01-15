@@ -1,6 +1,7 @@
 #include "dragonfly_chiplet.h"
 
-NodeInCG::NodeInCG(int k_chiplet, int vc_num, int buffer_size)
+NodeInCG::NodeInCG(int k_chiplet, int vc_num, int buffer_size, Channel internal_channel,
+                   Channel external_channel)
     : Node(5, vc_num, buffer_size),
       node_id_in_cg_(id_.node_id),
       xneg_in_buffer_(in_buffers_[0]),
@@ -19,10 +20,10 @@ NodeInCG::NodeInCG(int k_chiplet, int vc_num, int buffer_size)
   k_chiplet_ = k_chiplet;
   x_ = 0;
   y_ = 0;
-  // for (int i = 0; i < 4; i++) {
-  //   in_buffers_[i]->channel_.width = 2;
-  // }
-  in_buffers_[4]->channel_ = off_chip_serial_channel;
+  for (int i = 0; i < 4; i++) {
+    in_buffers_[i]->channel_ = internal_channel;
+  }
+  in_buffers_[4]->channel_ = external_channel;
 }
 
 void NodeInCG::set_node(Chip* cgroup, NodeID id) {
@@ -33,7 +34,8 @@ void NodeInCG::set_node(Chip* cgroup, NodeID id) {
   y_ = id.node_id / k_chiplet_;
 }
 
-CGroup::CGroup(int k_chiplet, int cgroup_radix, int vc_num, int buffer_size)
+CGroup::CGroup(int k_chiplet, int cgroup_radix, int vc_num, int buffer_size,
+               Channel internal_channel, Channel external_channel)
     : num_chiplets_(number_nodes_), cgroup_id_(chip_id_) {
   k_node_ = k_chiplet;
   cgroup_radix_ = cgroup_radix;
@@ -43,7 +45,7 @@ CGroup::CGroup(int k_chiplet, int cgroup_radix, int vc_num, int buffer_size)
   dragonfly_ = nullptr;
   nodes_.reserve(num_chiplets_);
   for (int i = 0; i < num_chiplets_; i++) {
-    nodes_.push_back(new NodeInCG(k_chiplet, vc_num, buffer_size));
+    nodes_.push_back(new NodeInCG(k_chiplet, vc_num, buffer_size, internal_channel, external_channel));
   }
 }
 
@@ -79,13 +81,13 @@ void CGroup::set_chip(System* dragonfly, int cgroup_id) {
 }
 
 DragonflyChiplet::DragonflyChiplet() : num_cgroup_(num_chips_), cgroups_(chips_) {
-  k_node_in_CG_ = param->scale;
+  read_config();
   num_nodes_per_cg_ = k_node_in_CG_ * k_node_in_CG_;
   // cgroup_radix_ = 3 * chiplets_per_cg_;
   cgroup_radix_ = (4 * k_node_in_CG_ - 4);
   // ext_ports_per_chiplet_ = cgroup_radix_ / (4 * k_chiplet_ - 4);
-  // l_ports_per_cg_ = cgroup_radix_ / 3 * 2 - 1;
-  l_ports_per_cg_ = cgroup_radix_ / 3 * 2;
+  l_ports_per_cg_ = cgroup_radix_ / 3 * 2 - 1;
+  // l_ports_per_cg_ = cgroup_radix_ / 3 * 2;
   g_ports_per_cg_ = cgroup_radix_ - l_ports_per_cg_;
   cgroup_per_wgroup_ = l_ports_per_cg_ + 1;
   g_ports_per_wg_ = g_ports_per_cg_ * cgroup_per_wgroup_;
@@ -95,11 +97,10 @@ DragonflyChiplet::DragonflyChiplet() : num_cgroup_(num_chips_), cgroups_(chips_)
   num_nodes_ = num_cores_;
   std::cout << "n_per_s:" << num_nodes_per_cg_ << " s_per_g:" << cgroup_per_wgroup_
             << " g:" << num_wgroup_ << std::endl;
-  algorithm_ = Algorithm::MIN;
   cgroups_.reserve(num_cgroup_);
   for (int cgroup_id = 0; cgroup_id < num_cgroup_; cgroup_id++) {
-    cgroups_.push_back(
-        new CGroup(k_node_in_CG_, cgroup_radix_, param->vc_number, param->buffer_size));
+    cgroups_.push_back(new CGroup(k_node_in_CG_, cgroup_radix_, param->vc_number,
+                                  param->buffer_size, internal_channel_, external_channel_));
     cgroups_[cgroup_id]->set_chip(this, cgroup_id);
   }
   // build the map form ext_port_id to node_id
@@ -127,6 +128,15 @@ DragonflyChiplet::DragonflyChiplet() : num_cgroup_(num_chips_), cgroups_(chips_)
 DragonflyChiplet::~DragonflyChiplet() {
   for (auto cgroup : cgroups_) delete cgroup;
   cgroups_.clear();
+}
+
+void DragonflyChiplet::read_config() {
+  k_node_in_CG_ = param->params_ptree.get<int>("Network.k_node", 4);
+  algorithm_ = param->params_ptree.get<std::string>("Network.routing_algorithm", "MIN");
+  int internal_bandiwdth = param->params_ptree.get<int>("Network.internal_bandwidth", 1);
+  int external_latency = param->params_ptree.get<int>("Network.external_latency", 4);
+  internal_channel_ = Channel(internal_bandiwdth, 1);
+  external_channel_ = Channel(1, external_latency);
 }
 
 void DragonflyChiplet::connect_local() {
@@ -187,17 +197,14 @@ void DragonflyChiplet::connect_global() {
   }
 }
 
-void DragonflyChiplet::routing_algorithm(Packet& s) {
-  switch (algorithm_) {
-    case DragonflyChiplet::Algorithm::MIN:
-      MIN_routing(s);
-      break;
-    default:
-      MIN_routing(s);
-  }
+void DragonflyChiplet::routing_algorithm(Packet& s) const {
+  if (algorithm_ == "MIN")
+    MIN_routing(s);
+  else
+    std::cerr << "Unknown routing algorithm: " << algorithm_ << std::endl;
 }
 
-void DragonflyChiplet::MIN_routing(Packet& s) {
+void DragonflyChiplet::MIN_routing(Packet& s) const {
   NodeInCG* current = get_node(s.head_trace().id);
   NodeInCG* destination = get_node(s.destination_);
 
@@ -222,26 +229,26 @@ void DragonflyChiplet::MIN_routing(Packet& s) {
     int current_wg_id = current_cgroup->wgroup_id_;
     int dest_wg_id = dest_cgroup->wgroup_id_;
     // mis-routing
-    CGroup* source_cg = get_node(s.source_)->cgroup_;
-    int source_wg_id = source_cg->wgroup_id_;
-    int src_cg_id_in_wgroup = source_cg->cgroup_id_ % cgroup_per_wgroup_;
-    // port id for the lowest global port of the C-group: cg_id_in_wgroup
-    if (current_wg_id == source_wg_id) {
-      int leave_node_id =
-          port_node_map_.at(src_cg_id_in_wgroup + s.source_.node_id % g_ports_per_cg_);
-      Port misrouting_global_port = get_port(current_cgroup->cgroup_id_, leave_node_id);
-      if (current->node_id_in_cg_ == leave_node_id) {
-        VCInfo vc(misrouting_global_port.link_buffer, 0);
-        s.candidate_channels_.push_back(vc);
-      } else {
-        XY_routing(s, NodeID(misrouting_global_port.node_id));
-        return;
-      }
-      // if (current_wg_id == source_wg_id) {
-      //   dest_wg_id = (dest_wg_id + s.source_.chip_id * 64 + s.source_.node_id) % num_wgroup_;
-      //   if (dest_wg_id == current_wg_id) dest_wg_id = (dest_wg_id + 1) % num_wgroup_;
-      // }
-    }
+    // CGroup* source_cg = get_node(s.source_)->cgroup_;
+    // int source_wg_id = source_cg->wgroup_id_;
+    // int src_cg_id_in_wgroup = source_cg->cgroup_id_ % cgroup_per_wgroup_;
+    //// port id for the lowest global port of the C-group: cg_id_in_wgroup
+    // if (current_wg_id == source_wg_id) {
+    //   int leave_node_id =
+    //       port_node_map_.at(src_cg_id_in_wgroup + s.source_.node_id % g_ports_per_cg_);
+    //   Port misrouting_global_port = get_port(current_cgroup->cgroup_id_, leave_node_id);
+    //   if (current->node_id_in_cg_ == leave_node_id) {
+    //     VCInfo vc(misrouting_global_port.link_buffer, 0);
+    //     s.candidate_channels_.push_back(vc);
+    //   } else {
+    //     XY_routing(s, NodeID(misrouting_global_port.node_id));
+    //     return;
+    //   }
+    //   // if (current_wg_id == source_wg_id) {
+    //   //   dest_wg_id = (dest_wg_id + s.source_.chip_id * 64 + s.source_.node_id) % num_wgroup_;
+    //   //   if (dest_wg_id == current_wg_id) dest_wg_id = (dest_wg_id + 1) % num_wgroup_;
+    //   // }
+    // }
     Port global_port = global_link_map_.at({current_wg_id, dest_wg_id});
     if (global_port.node_id.node_id == current->node_id_in_cg_) {
       VCInfo vc(global_port.link_buffer, 0);
@@ -268,7 +275,7 @@ void DragonflyChiplet::MIN_routing(Packet& s) {
   }
 }
 
-void DragonflyChiplet::XY_routing(Packet& s, NodeID dest) {
+void DragonflyChiplet::XY_routing(Packet& s, NodeID dest) const {
   NodeInCG* current_node = get_node(s.head_trace().id);
   NodeInCG* destination_node = get_node(dest);
 

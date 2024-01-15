@@ -1,5 +1,7 @@
 #pragma once
-#include <boost/optional.hpp>
+// #include <boost/optional.hpp>
+#include <boost/property_tree/ini_parser.hpp>
+#include <boost/property_tree/ptree.hpp>
 #include <cassert>
 #include <iomanip>
 #include <iostream>
@@ -28,23 +30,18 @@ struct Channel {
   }
 };
 
-const Channel on_chip_channel(1, 0);
-const Channel off_chip_parallel_channel(1, 1);
-const Channel off_chip_serial_channel(1, 2);
+const Channel on_chip_channel(1, 1);
+const Channel off_chip_parallel_channel(1, 2);
+const Channel off_chip_serial_channel(2, 4);
 
 struct Parameters {
  public:
   explicit Parameters(const std::string& config_file = "");
   std::string config_file_path;
-
+  boost::property_tree::ptree params_ptree;
   // Network parameters
   std::string topology;
-  // represent different meanings in different topologies
-  int radix;
-  int scale;
-  std::string routing_algorithm;
-  int buffer_size;     // flits
-  int IF_buffer_size;  // flits
+  int buffer_size;  // flits
   int vc_number;
   std::string router_stages;
   int processing_time;     // cycles
@@ -71,10 +68,8 @@ struct Parameters {
     // print all memebers
     std::cout << std::setw(20) << "Config File: " << config_file_path << std::endl;
     std::cout << std::setw(20) << "Topology: " << topology << std::endl;
-    std::cout << std::setw(20) << "Routing Algorithm: " << routing_algorithm << std::endl;
     std::cout << std::setw(20) << "Router Stage Num: " << router_stages << std::endl;
     std::cout << std::setw(20) << "Buffer Size: " << buffer_size << std::endl;
-    std::cout << std::setw(20) << "IF Buffer Size: " << IF_buffer_size << std::endl;
     std::cout << std::setw(20) << "VC number: " << vc_number << std::endl;
     std::cout << std::setw(20) << "Processing Time: " << processing_time << std::endl;
     std::cout << std::setw(20) << "Routing Time: " << routing_time << std::endl;
@@ -86,6 +81,7 @@ struct Parameters {
     std::cout << std::setw(20) << "Timeout Threshold: " << timeout_threshold << std::endl;
     std::cout << std::setw(20) << "Timeout Pkts Limit: " << timeout_limit << std::endl;
     std::cout << std::setw(20) << "Threads Number: " << threads << std::endl;
+    std::cout << std::setw(20) << "Issue Width: " << issue_width << std::endl;
     std::cout << std::setw(20) << "Trace File: " << trace_file << std::endl;
     std::cout << std::setw(20) << "Netrace File: " << netrace_file << std::endl;
     std::cout << std::setw(20) << "Output File: " << output_file << std::endl;

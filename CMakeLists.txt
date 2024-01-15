@@ -1,6 +1,6 @@
 ﻿cmake_minimum_required (VERSION 3.8)
 
-project (ChipletNetworkSim VERSION 0.8
+project (ChipletNetworkSim VERSION 0.9
 						   DESCRIPTION "A cycle-accurate packet-parallel network simulator."
                            LANGUAGES C CXX)
 

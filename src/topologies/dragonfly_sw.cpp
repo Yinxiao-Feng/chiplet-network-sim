@@ -1,15 +1,15 @@
 #include "dragonfly_sw.h"
 
-ChipSwitch::ChipSwitch(int sw_radix, int num_core, int vc_num, int buffer_size) {
+ChipSwitch::ChipSwitch(int sw_radix, int num_core, int vc_num, int buffer_size, Channel ch) {
   switch_radix_ = sw_radix;
   number_cores_ = num_core;
   number_nodes_ = number_cores_ + 1;
   group_id_ = 0;
   nodes_.reserve(number_nodes_);
   for (int i = 0; i < number_cores_; i++) {
-    nodes_.push_back(new Node(1, vc_num, buffer_size, off_chip_serial_channel));
+    nodes_.push_back(new Node(1, vc_num, buffer_size, ch));
   }
-  nodes_.push_back(new Node(switch_radix_, vc_num, buffer_size, off_chip_serial_channel));
+  nodes_.push_back(new Node(switch_radix_, vc_num, buffer_size, ch));
 }
 
 ChipSwitch::~ChipSwitch() {
@@ -34,24 +34,27 @@ void ChipSwitch::set_chip(System* dragonfly, int switch_id) {
 }
 
 DragonflySW::DragonflySW() : num_switch_(num_chips_), switches_(chips_) {
-  sw_radix_ = param->radix;
+  read_config();
   cores_per_sw_ = sw_radix_ / 4;
   l_ports_per_sw_ = sw_radix_ / 2 - 1;
-  g_ports_per_sw_ = sw_radix_ - cores_per_sw_ - l_ports_per_sw_ - 1;
+  if (fully_use_ports_) {
+    g_ports_per_sw_ = sw_radix_ - cores_per_sw_ - l_ports_per_sw_;
+  } else {
+    g_ports_per_sw_ = sw_radix_ - cores_per_sw_ - l_ports_per_sw_ - 1;
+  }
   sw_per_group_ = l_ports_per_sw_ + 1;
   g_ports_per_group_ = g_ports_per_sw_ * sw_per_group_;
   num_group_ = g_ports_per_group_ + 1;
   num_switch_ = num_group_ * sw_per_group_;
   num_cores_ = num_switch_ * cores_per_sw_;
   num_nodes_ = num_switch_ * (cores_per_sw_ + 1);
-  assert(param->vc_number>=2);
+  assert(param->vc_number >= 2);
   std::cout << "n_per_s:" << cores_per_sw_ << " s_per_g:" << sw_per_group_ << " g:" << num_group_
             << " num_cores:" << num_cores_ << std::endl;
-  algorithm_ = param->routing_algorithm;
   switches_.reserve(num_switch_);
   for (int sw_id = 0; sw_id < num_switch_; sw_id++) {
-    switches_.push_back(
-        new ChipSwitch(sw_radix_, cores_per_sw_, param->vc_number, param->buffer_size));
+    switches_.push_back(new ChipSwitch(sw_radix_, cores_per_sw_, param->vc_number,
+                                       param->buffer_size, physical_channel_));
     switches_[sw_id]->set_chip(this, sw_id);
   }
   connect_local();
@@ -61,6 +64,14 @@ DragonflySW::DragonflySW() : num_switch_(num_chips_), switches_(chips_) {
 DragonflySW::~DragonflySW() {
   for (auto sw : switches_) delete sw;
   switches_.clear();
+}
+
+void DragonflySW::read_config() {
+  sw_radix_ = param->params_ptree.get<int>("Network.sw_radix", 16);
+  algorithm_ = param->params_ptree.get<std::string>("Network.routing_algorithm", "MIN");
+  fully_use_ports_ = param->params_ptree.get<bool>("Network.fully_use_ports", false);
+  int latency = param->params_ptree.get<int>("Network.channel_latency", 4);
+  physical_channel_ = Channel(1, latency);
 }
 
 void DragonflySW::connect_local() {
@@ -122,14 +133,14 @@ void DragonflySW::connect_global() {
   }
 }
 
-void DragonflySW::routing_algorithm(Packet& s) {
+void DragonflySW::routing_algorithm(Packet& s) const {
   if (algorithm_ == "MIN")
     MIN_routing(s);
   else
     std::cerr << "Unknown routing algorithm: " << algorithm_ << std::endl;
 }
 
-void DragonflySW::MIN_routing(Packet& s) {
+void DragonflySW::MIN_routing(Packet& s) const {
   Node* current = get_node(s.head_trace().id);
   Node* destination = get_node(s.destination_);
 
@@ -156,8 +167,8 @@ void DragonflySW::MIN_routing(Packet& s) {
     int current_group_id = current_sw->group_id_;
     int dest_group_id = dest_sw->group_id_;
     // mis-routing
-    //int source_group_id = get_switch(s.source_)->group_id_;
-    //if (current_group_id == source_group_id) {
+    // int source_group_id = get_switch(s.source_)->group_id_;
+    // if (current_group_id == source_group_id) {
     //  int sw_id_in_group = current_sw->chip_id_ % sw_per_group_;
     //  int lowest_global_port_id = cores_per_sw_ + sw_id_in_group;
     //  VCInfo vc(current->link_buffers_[lowest_global_port_id + s.source_.node_id], 0);

@@ -6,7 +6,8 @@ class DragonflyChiplet;
 
 class NodeInCG : public Node {
  public:
-  NodeInCG(int k_chiplet, int vc_num, int buffer_size);
+  NodeInCG(int k_chiplet, int vc_num, int buffer_size, Channel internal_channel,
+           Channel external_channel);
   void set_node(Chip* cgroup, NodeID id) override;
   CGroup* cgroup_;
   int& node_id_in_cg_;
@@ -34,7 +35,8 @@ class NodeInCG : public Node {
 
 class CGroup : public Chip {
  public:
-  CGroup(int k_chiplet, int cgroup_radix, int vc_num, int buffer_size);
+  CGroup(int k_chiplet, int cgroup_radix, int vc_num, int buffer_size, Channel internal_channel,
+         Channel external_channel);
   ~CGroup();
 
   void set_chip(System* dragonfly, int Cgroup_id) override;
@@ -53,7 +55,6 @@ class CGroup : public Chip {
 
 class DragonflyChiplet : public System {
  public:
-  enum class Algorithm { MIN };
   // port_id in C-Group
   struct PortID {
     PortID() {}
@@ -67,16 +68,20 @@ class DragonflyChiplet : public System {
   DragonflyChiplet();
   ~DragonflyChiplet();
 
+  void read_config() override;
+
   void connect_local();
   void connect_global();
 
-  void routing_algorithm(Packet& s) override;
-  void MIN_routing(Packet& s);
-  void XY_routing(Packet& s, NodeID dest);
+  void routing_algorithm(Packet& s) const override;
+  void MIN_routing(Packet& s) const;
+  void XY_routing(Packet& s, NodeID dest) const;
 
-  inline NodeInCG* get_node(NodeID id) { return static_cast<NodeInCG*>(System::get_node(id)); }
-  inline CGroup* get_cgroup(NodeID id) { return static_cast<CGroup*>(get_chip(id.chip_id)); }
-  inline Port get_port(int cgroup_id, int node_id) {
+  inline NodeInCG* get_node(NodeID id) const {
+    return static_cast<NodeInCG*>(System::get_node(id));
+  }
+  inline CGroup* get_cgroup(NodeID id) const { return static_cast<CGroup*>(get_chip(id.chip_id)); }
+  inline Port get_port(int cgroup_id, int node_id) const {
     Node* chiplet = get_node(NodeID(node_id, cgroup_id));
     return chiplet->ports_[4];
   }
@@ -93,9 +98,11 @@ class DragonflyChiplet : public System {
   //   <cgroup_id_w_group, node_id>
   std::pair<int, int> global_port_id_to_port_id(int global_port_id);
 
-  Algorithm algorithm_;
+  std::string algorithm_;
 
   int k_node_in_CG_;
+  Channel internal_channel_;
+  Channel external_channel_;
   int cgroup_radix_;
   int num_nodes_per_cg_;
   int l_ports_per_cg_;

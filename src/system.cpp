@@ -3,6 +3,8 @@
 #include "dragonfly_chiplet.h"
 #include "dragonfly_sw.h"
 #include "single_chip_mesh.h"
+#include "multiple_chip_mesh.h"
+#include "multiple_chip_torus.h"
 #include "traffic_manager.h"
 
 System::System() {
@@ -24,6 +26,10 @@ System* System::New(const std::string& topology) {
   System* sys_ptr;
   if (topology == "SingleChipMesh")
     sys_ptr = new SingleChipMesh;
+  else if (topology == "MultiChipMesh")
+	sys_ptr = new MultiChipMesh;
+  else if (topology == "MultiChipTorus")
+	sys_ptr = new MultiChipTorus;
   else if (topology == "DragonflySW")
     sys_ptr = new DragonflySW;
   else if (topology == "DragonflyChiplet")

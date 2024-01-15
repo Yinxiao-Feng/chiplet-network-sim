@@ -8,7 +8,7 @@
 
 class ChipSwitch : public Chip {
  public:
-  ChipSwitch(int sw_radix, int num_core, int vc_num, int buffer_size);
+  ChipSwitch(int sw_radix, int num_core, int vc_num, int buffer_size, Channel);
   ~ChipSwitch();
 
   void set_chip(System* dragonfly, int switch_id) override;
@@ -25,17 +25,19 @@ class DragonflySW : public System {
  public:
   DragonflySW();
   ~DragonflySW();
+  
+  void read_config() override;
 
   void connect_local();
   void connect_global();
 
-  void routing_algorithm(Packet& s) override;
-  void MIN_routing(Packet& s);
+  void routing_algorithm(Packet& s) const override;
+  void MIN_routing(Packet& s) const;
 
-  inline ChipSwitch* get_switch(NodeID id) {
+  inline ChipSwitch* get_switch(NodeID id) const {
     return static_cast<ChipSwitch*>(get_chip(id.chip_id));
   }
-  inline Port get_port(int switch_id, int port_id) {
+  inline Port get_port(int switch_id, int port_id) const {
     Node* sw = get_node(NodeID(cores_per_sw_, switch_id));
     return sw->ports_[port_id];
   }
@@ -47,6 +49,8 @@ class DragonflySW : public System {
   std::string algorithm_;
 
   int sw_radix_;
+  bool fully_use_ports_;
+  Channel physical_channel_;
   int cores_per_sw_;
   int l_ports_per_sw_;
   int g_ports_per_sw_;

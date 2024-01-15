@@ -1,16 +1,12 @@
 #include "single_chip_mesh.h"
 
 SingleChipMesh::SingleChipMesh() {
-  // topology parameters
+  read_config();
   num_chips_ = 1;
-  k_node_ = param->scale;
   num_nodes_ = k_node_ * k_node_;
   num_cores_ = num_nodes_;
-  algorithm_ = param->routing_algorithm;
   chips_.push_back(new ChipMesh(k_node_, param->vc_number, param->buffer_size));
-  for (int chip_id = 0; chip_id < num_chips_; chip_id++) {
-    chips_[chip_id]->set_chip(this, chip_id);
-  }
+  chips_[0]->set_chip(this, 0);
 }
 
 SingleChipMesh::~SingleChipMesh() {
@@ -18,11 +14,20 @@ SingleChipMesh::~SingleChipMesh() {
   chips_.clear();
 }
 
-void SingleChipMesh::routing_algorithm(Packet &s) {
+void SingleChipMesh::read_config() {
+  k_node_ = param->params_ptree.get<int>("Network.scale", 4);
+  algorithm_ = param->params_ptree.get<std::string>("Network.routing_algorithm", "XY");
+  if (algorithm_ == "NFR_adaptive") assert(param->vc_number >= 2);
+  printf("Single Chip 2D-mesh, %ix%i\n", k_node_, k_node_);
+}
+
+void SingleChipMesh::routing_algorithm(Packet &s) const {
   if (algorithm_ == "XY")
     XY_routing(s);
   else if (algorithm_ == "NFR")
     NFR_routing(s);
+  else if (algorithm_ == "NFR_adaptive")
+    NFR_adaptive_routing(s);
   else
     std::cerr << "Unknown routing algorithm: " << algorithm_ << std::endl;
 }
@@ -31,24 +36,24 @@ void SingleChipMesh::XY_routing(Packet &s) const {
   NodeMesh *current_node = get_node(s.head_trace().id);
   NodeMesh *destination_node = get_node(s.destination_);
 
-  int curx = current_node->x_;
-  int cury = current_node->y_;
-  int dstx = destination_node->x_;
-  int dsty = destination_node->y_;
-  int xdis = dstx - curx;  // x offset
-  int ydis = dsty - cury;  // y offset
+  int cur_x = current_node->x_;
+  int cur_y = current_node->y_;
+  int dest_x = destination_node->x_;
+  int dest_y = destination_node->y_;
+  int dis_x = dest_x - cur_x;  // x offset
+  int dis_y = dest_y - cur_y;  // y offset
 
-  if (xdis < 0)  // first x
+  if (dis_x < 0)  // first x
     for (int i = 0; i < current_node->xneg_link_buffer_->vc_num_; i++)
       s.candidate_channels_.push_back(VCInfo(current_node->xneg_link_buffer_, i));
-  else if (xdis > 0)
+  else if (dis_x > 0)
     for (int i = 0; i < current_node->xpos_link_buffer_->vc_num_; i++)
       s.candidate_channels_.push_back(VCInfo(current_node->xpos_link_buffer_, i));
-  else if (xdis == 0) {
-    if (ydis < 0)  // then y
+  else if (dis_x == 0) {
+    if (dis_y < 0)  // then y
       for (int i = 0; i < current_node->yneg_link_buffer_->vc_num_; i++)
         s.candidate_channels_.push_back(VCInfo(current_node->yneg_link_buffer_, i));
-    else if (ydis > 0)
+    else if (dis_y > 0)
       for (int i = 0; i < current_node->ypos_link_buffer_->vc_num_; i++)
         s.candidate_channels_.push_back(VCInfo(current_node->ypos_link_buffer_, i));
   }
@@ -58,27 +63,70 @@ void SingleChipMesh::NFR_routing(Packet &s) const {
   NodeMesh *current_node = get_node(s.head_trace().id);
   NodeMesh *destination_node = get_node(s.destination_);
 
-  int curx = current_node->x_;
-  int cury = current_node->y_;
-  int dstx = destination_node->x_;
-  int dsty = destination_node->y_;
-  int xdis = dstx - curx;  // x offset
-  int ydis = dsty - cury;  // y offset
+  int cur_x = current_node->x_;
+  int cur_y = current_node->y_;
+  int dest_x = destination_node->x_;
+  int dest_y = destination_node->y_;
+  int dis_x = dest_x - cur_x;  // x offset
+  int dis_y = dest_y - cur_y;  // y offset
 
   // Baseline routing: negative-first
-  if (xdis < 0 || ydis < 0) {
-    if (xdis < 0)
+  if (dis_x < 0 || dis_y < 0) {
+    if (dis_x < 0)
       for (int i = 0; i < current_node->xneg_link_buffer_->vc_num_; i++)
         s.candidate_channels_.push_back(VCInfo(current_node->xneg_link_buffer_, i));
-    if (ydis < 0)
+    if (dis_y < 0)
       for (int i = 0; i < current_node->yneg_link_buffer_->vc_num_; i++)
         s.candidate_channels_.push_back(VCInfo(current_node->yneg_link_buffer_, i));
   } else {
-    if (xdis > 0)
+    if (dis_x > 0)
       for (int i = 0; i < current_node->xpos_link_buffer_->vc_num_; i++)
         s.candidate_channels_.push_back(VCInfo(current_node->xpos_link_buffer_, i));
-    if (ydis > 0)
+    if (dis_y > 0)
       for (int i = 0; i < current_node->ypos_link_buffer_->vc_num_; i++)
         s.candidate_channels_.push_back(VCInfo(current_node->ypos_link_buffer_, i));
+  }
+}
+
+void SingleChipMesh::NFR_adaptive_routing(Packet &s) const {
+  NodeMesh *current_node = get_node(s.head_trace().id);
+  NodeMesh *destination_node = get_node(s.destination_);
+
+  int cur_x = current_node->x_;
+  int cur_y = current_node->y_;
+  int dest_x = destination_node->x_;
+  int dest_y = destination_node->y_;
+  int dis_x = dest_x - cur_x;  // x offset
+  int dis_y = dest_y - cur_y;  // y offset
+
+  // Adaptive Routing Channels
+  if (dis_x < 0)
+    for (int i = 0; i < current_node->xneg_link_buffer_->vc_num_ - 1; i++)
+      s.candidate_channels_.push_back(VCInfo(current_node->xneg_link_buffer_, i));
+  else if (dis_x > 0)
+    for (int i = 0; i < current_node->xpos_link_buffer_->vc_num_ - 1; i++)
+      s.candidate_channels_.push_back(VCInfo(current_node->xpos_link_buffer_, i));
+  if (dis_y < 0)
+    for (int i = 0; i < current_node->yneg_link_buffer_->vc_num_ - 1; i++)
+      s.candidate_channels_.push_back(VCInfo(current_node->yneg_link_buffer_, i));
+  else if (dis_y > 0)
+    for (int i = 0; i < current_node->ypos_link_buffer_->vc_num_ - 1; i++)
+      s.candidate_channels_.push_back(VCInfo(current_node->ypos_link_buffer_, i));
+
+  // Baseline routing: negative-first
+  if (dis_x < 0 || dis_y < 0) {
+    if (dis_x < 0)
+      s.candidate_channels_.push_back(
+          VCInfo(current_node->xneg_link_buffer_, current_node->xneg_link_buffer_->vc_num_ - 1));
+    if (dis_y < 0)
+      s.candidate_channels_.push_back(
+          VCInfo(current_node->yneg_link_buffer_, current_node->yneg_link_buffer_->vc_num_ - 1));
+  } else {
+    if (dis_x > 0)
+      s.candidate_channels_.push_back(
+          VCInfo(current_node->xpos_link_buffer_, current_node->xpos_link_buffer_->vc_num_ - 1));
+    if (dis_y > 0)
+      s.candidate_channels_.push_back(
+          VCInfo(current_node->ypos_link_buffer_, current_node->ypos_link_buffer_->vc_num_ - 1));
   }
 }
