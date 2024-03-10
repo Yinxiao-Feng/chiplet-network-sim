@@ -58,6 +58,7 @@ class DragonflySW : public System {
   int sw_per_group_;
   int num_group_;
   int& num_switch_;
+  bool mis_routing;
 
   // <src_sw_id_in_group, dest_sw_id_in_group> -> port_id
   std::map<std::pair<int, int>, int> local_link_map_;

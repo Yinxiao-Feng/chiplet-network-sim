@@ -45,7 +45,8 @@ CGroup::CGroup(int k_chiplet, int cgroup_radix, int vc_num, int buffer_size,
   dragonfly_ = nullptr;
   nodes_.reserve(num_chiplets_);
   for (int i = 0; i < num_chiplets_; i++) {
-    nodes_.push_back(new NodeInCG(k_chiplet, vc_num, buffer_size, internal_channel, external_channel));
+    nodes_.push_back(
+        new NodeInCG(k_chiplet, vc_num, buffer_size, internal_channel, external_channel));
   }
 }
 
@@ -137,6 +138,7 @@ void DragonflyChiplet::read_config() {
   int external_latency = param->params_ptree.get<int>("Network.external_latency", 4);
   internal_channel_ = Channel(internal_bandiwdth, 1);
   external_channel_ = Channel(1, external_latency);
+  mis_routing = param->params_ptree.get<bool>("Network.mis_routing", false);
 }
 
 void DragonflyChiplet::connect_local() {
@@ -229,26 +231,30 @@ void DragonflyChiplet::MIN_routing(Packet& s) const {
     int current_wg_id = current_cgroup->wgroup_id_;
     int dest_wg_id = dest_cgroup->wgroup_id_;
     // mis-routing
-    // CGroup* source_cg = get_node(s.source_)->cgroup_;
-    // int source_wg_id = source_cg->wgroup_id_;
-    // int src_cg_id_in_wgroup = source_cg->cgroup_id_ % cgroup_per_wgroup_;
-    //// port id for the lowest global port of the C-group: cg_id_in_wgroup
-    // if (current_wg_id == source_wg_id) {
-    //   int leave_node_id =
-    //       port_node_map_.at(src_cg_id_in_wgroup + s.source_.node_id % g_ports_per_cg_);
-    //   Port misrouting_global_port = get_port(current_cgroup->cgroup_id_, leave_node_id);
-    //   if (current->node_id_in_cg_ == leave_node_id) {
-    //     VCInfo vc(misrouting_global_port.link_buffer, 0);
-    //     s.candidate_channels_.push_back(vc);
-    //   } else {
-    //     XY_routing(s, NodeID(misrouting_global_port.node_id));
-    //     return;
-    //   }
-    //   // if (current_wg_id == source_wg_id) {
-    //   //   dest_wg_id = (dest_wg_id + s.source_.chip_id * 64 + s.source_.node_id) % num_wgroup_;
-    //   //   if (dest_wg_id == current_wg_id) dest_wg_id = (dest_wg_id + 1) % num_wgroup_;
-    //   // }
-    // }
+    if (mis_routing) {
+      CGroup* source_cg = get_node(s.source_)->cgroup_;
+      int source_wg_id = source_cg->wgroup_id_;
+      int src_cg_id_in_wgroup = source_cg->cgroup_id_ % cgroup_per_wgroup_;
+      // port id for the lowest global port of the C-group: cg_id_in_wgroup
+      if (current_wg_id == source_wg_id) {
+        int leave_node_id =
+            port_node_map_.at(src_cg_id_in_wgroup + s.source_.node_id % g_ports_per_cg_);
+        Port misrouting_global_port = get_port(current_cgroup->cgroup_id_, leave_node_id);
+        if (current->node_id_in_cg_ == leave_node_id) {
+          VCInfo vc(misrouting_global_port.link_buffer, 0);
+          s.candidate_channels_.push_back(vc);
+        } else {
+          XY_routing(s, NodeID(misrouting_global_port.node_id));
+          return;
+        }
+        // if (current_wg_id == source_wg_id) {
+        //   dest_wg_id = (dest_wg_id + s.source_.chip_id * 64 + s.source_.node_id) %
+        // num_wgroup_;
+        //   if (dest_wg_id == current_wg_id) dest_wg_id = (dest_wg_id + 1) %
+        // num_wgroup_;
+        // }
+      }
+    }
     Port global_port = global_link_map_.at({current_wg_id, dest_wg_id});
     if (global_port.node_id.node_id == current->node_id_in_cg_) {
       VCInfo vc(global_port.link_buffer, 0);
@@ -308,7 +314,8 @@ void DragonflyChiplet::XY_routing(Packet& s, NodeID dest) const {
   }
 }
 
-// DragonflyChiplet::PortID DragonflyChiplet::local_port_id_to_port_id(int local_port_id) {
+// DragonflyChiplet::PortID DragonflyChiplet::local_port_id_to_port_id(int local_port_id)
+// {
 //   return PortID();
 // }
 

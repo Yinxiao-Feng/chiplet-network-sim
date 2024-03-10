@@ -32,6 +32,7 @@ TrafficManager::TrafficManager() {
   total_internal_hops_.store(0);
   total_parallel_hops_.store(0);
   total_serial_hops_.store(0);
+  total_other_hops_.store(0);
 #ifdef DEBUG
   for (auto& chip : network->chips_) {
     for (auto& node : chip->nodes_) {
@@ -63,6 +64,7 @@ void TrafficManager::reset() {
   total_internal_hops_.store(0);
   total_parallel_hops_.store(0);
   total_serial_hops_.store(0);
+  total_other_hops_.store(0);
 }
 
 void TrafficManager::print_statistics() {
@@ -70,6 +72,7 @@ void TrafficManager::print_statistics() {
   float average_internal_hops = ((float)TM->total_internal_hops_ / TM->message_arrived_);
   float average_parallel_hops = ((float)TM->total_parallel_hops_ / TM->message_arrived_);
   float average_serial_hops = ((float)TM->total_serial_hops_ / TM->message_arrived_);
+  float average_other_hops = ((float)TM->total_other_hops_ / TM->message_arrived_);
   std::cout << std::endl
             << "Time elapsed: " << elapsed_seconds.count() << "s" << std::endl
             << "Injection rate:" << injection_rate_ << " flits/(node*cycle)"
@@ -79,7 +82,8 @@ void TrafficManager::print_statistics() {
             << "  Average receiving rate: " << receiving_rate() << std::endl
             << "Internal Hops: " << average_internal_hops
             << "   Parallel Hops: " << average_parallel_hops
-            << "   Serial Hops: " << average_serial_hops << std::endl;
+            << "   Serial Hops: " << average_serial_hops 
+            << "   Other Hops: " << average_other_hops << std::endl;
   output_ << injection_rate_ << "," << ((float)total_cycles_ / message_arrived_) << ","
           << receiving_rate() << std::endl;
 #ifdef DEBUG

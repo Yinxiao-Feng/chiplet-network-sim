@@ -2,9 +2,9 @@
 
 #include "dragonfly_chiplet.h"
 #include "dragonfly_sw.h"
-#include "single_chip_mesh.h"
 #include "multiple_chip_mesh.h"
 #include "multiple_chip_torus.h"
+#include "single_chip_mesh.h"
 #include "traffic_manager.h"
 
 System::System() {
@@ -13,9 +13,6 @@ System::System() {
   num_cores_ = 0;
 
   // router parameters
-  routing_time_ = param->routing_time;
-  vc_allocating_time_ = param->vc_allocating_time;
-  sw_allocating_time_ = param->sw_allocating_time;
   router_stages_ = param->router_stages;
 
   // simulation parameters
@@ -27,9 +24,9 @@ System* System::New(const std::string& topology) {
   if (topology == "SingleChipMesh")
     sys_ptr = new SingleChipMesh;
   else if (topology == "MultiChipMesh")
-	sys_ptr = new MultiChipMesh;
+    sys_ptr = new MultiChipMesh;
   else if (topology == "MultiChipTorus")
-	sys_ptr = new MultiChipTorus;
+    sys_ptr = new MultiChipTorus;
   else if (topology == "DragonflySW")
     sys_ptr = new DragonflySW;
   else if (topology == "DragonflyChiplet")
@@ -72,72 +69,49 @@ void System::Threestage(Packet& p) {
     switch_allocate(p);
 }
 
-void System::routing(Packet& p) {
+void System::routing(Packet& p) const {
   assert(p.candidate_channels_.empty());
-  if (p.routing_timer_ > 0) {
-    p.routing_timer_--;
-    return;
-  }
   routing_algorithm(p);
   assert(!p.candidate_channels_.empty());
 }
 
 void System::vc_allocate(Packet& p) const {
-  // Latency of VC allocation
-  if (p.VA_timer_ > 0) {
-    p.VA_timer_--;
-    return;
-  }
   VCInfo current_vc = p.head_trace();
   if (current_vc.buffer == nullptr ||
       current_vc.head_packet() == &p) {  // the packet is at the source or at the front of the queue
     for (auto& vc : p.candidate_channels_) {
-      if (vc.id == p.destination_) {
-        // immediately consumed upon reaching the destination, no vc is occupied
-        p.next_vc_ = vc;
-        return;
-      } else {
-        if (vc.buffer->is_empty(vc.vc))  // try to allocate a free vc
-          if (vc.buffer->allocate_buffer(vc.vc, p.length_)) {
-            // allocating sucessed
-            p.next_vc_ = vc;
-            return;
-          }
-      }
+      if (vc.buffer->is_empty(vc.vcb))                        // try to allocate a empty vc
+        if (vc.buffer->allocate_buffer(vc.vcb, p.length_)) {  // packet switching
+          // allocating sucessed
+          p.next_vc_ = vc;
+          return;
+        }
     }
-    for (auto& vc : p.candidate_channels_) {  // packet switching
-                                              // if (vc.id == p.destination_) {
-      //   // immediately consumed upon reaching the destination, no vc is occupied
-      //   p.next_vc_ = vc;
-      //   return;
-      // } else {
-      if (vc.buffer->allocate_buffer(vc.vc, p.length_)) {
+    // no empty vc, try to allocate a free vc
+    for (auto& vc : p.candidate_channels_) {
+      if (vc.buffer->allocate_buffer(vc.vcb, p.length_)) {  // packet switching
         // allocating sucessed
         p.next_vc_ = vc;
         return;
       }
-      //}
     }
-    // allocation failed, wait for allocating again
-    p.VA_timer_ = vc_allocating_time_;
   }
 }
 
 void System::switch_allocate(Packet& p) {
   VCInfo current_vc = p.head_trace();
-  if (current_vc.buffer == nullptr ||           // packet is at the source
-      current_vc.head_packet() == &p) {         // the packet is at the front of the queue
-    if (p.next_vc_.buffer->allocate_link(p)) {  // wait for link
-      if (p.SA_timer_ <= 0) {                   // allocating link (bandwidth)
-        // s.next_vc_.buffer->link_used_ = true;
+  if (current_vc.buffer == nullptr) {
+    if (p.next_vc_.buffer->allocate_in_link(p)) {  // wait for link to the next buffer
+      p.switch_allocated_ = true;
+    }
+  } else if (current_vc.head_packet() == &p) {
+    if (current_vc.buffer->allocate_sw_link()) {     // try to allocate the link to the switch
+      if (p.next_vc_.buffer->allocate_in_link(p)) {  // wait for link to the next buffer
         p.switch_allocated_ = true;
       } else
-        p.SA_timer_--;
-    } else {  // no available links
-      p.SA_timer_ = sw_allocating_time_;
+        current_vc.buffer->release_sw_link();
     }
   }
-  // not the head of the queue, wait in the queue
 }
 
 void System::update(Packet& p) {
@@ -155,7 +129,6 @@ void System::update(Packet& p) {
       // injected
       p.routing_timer_ = routing_time_;
       p.VA_timer_ = vc_allocating_time_;
-      p.SA_timer_ = sw_allocating_time_;
     }
     return;
   }
@@ -195,9 +168,10 @@ void System::update(Packet& p) {
       p.parallel_hops_++;
     else if (temp1.buffer->channel_ == off_chip_serial_channel)
       p.serial_hops_++;
+    else
+      p.other_hops_++;
     p.routing_timer_ = routing_time_;
     p.VA_timer_ = vc_allocating_time_;
-    p.SA_timer_ = sw_allocating_time_;
     p.candidate_channels_.clear();
     p.next_vc_ = VCInfo();
     p.switch_allocated_ = false;
@@ -236,18 +210,21 @@ void System::update(Packet& p) {
       p.releaselink_ = true;
       p.leaving_vc_ = temp2;
       if (temp2.buffer != nullptr) {
-        temp2.buffer->release_buffer(temp2.vc, p.length_);
+        temp2.buffer->release_buffer(temp2.vcb, p.length_);
       }
     }
   }
   // If the last flit reach destination, delete message
   if (p.link_timer_ == 0 && p.tail_trace().id == p.destination_) {
+    VCInfo dest_vc = p.tail_trace();
+    dest_vc.buffer->release_buffer(dest_vc.vcb, p.length_);
     p.finished_ = true;
     TM->message_arrived_++;
     TM->total_cycles_ += p.trans_timer_;
     TM->total_parallel_hops_ += p.parallel_hops_;
     TM->total_serial_hops_ += p.serial_hops_;
     TM->total_internal_hops_ += p.internal_hops_;
+    TM->total_other_hops_ += p.other_hops_;
     return;
   }
 }

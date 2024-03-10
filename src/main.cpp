@@ -51,7 +51,12 @@ static void run_one_cycle(std::vector<Packet*>& vec_pkts, System* system) {
   for (auto i = 0; i < vecsize; ++i) {
     Packet*& pkt = vec_pkts[i];
     if (pkt->releaselink_ == true) {
-      pkt->tail_trace().buffer->release_link(*pkt);
+      pkt->tail_trace().buffer->release_in_link(*pkt);
+      if (pkt->leaving_vc_.buffer != nullptr) // not leave the source node
+        pkt->leaving_vc_.buffer->release_sw_link();
+      else {
+        assert(pkt->leaving_vc_.id == pkt->source_);
+      }
       pkt->releaselink_ = false;
     }
     if (pkt->finished_) {

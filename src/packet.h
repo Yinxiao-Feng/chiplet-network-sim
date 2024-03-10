@@ -32,6 +32,7 @@ class Packet {
   int internal_hops_;
   int parallel_hops_;
   int serial_hops_;
+  int other_hops_;
   bool finished_;      // check message whether arrived
   bool releaselink_;   // if the tail of a message shifts , the physical link
                        // the message occupied should release.

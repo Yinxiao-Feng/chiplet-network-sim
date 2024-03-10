@@ -72,6 +72,7 @@ void DragonflySW::read_config() {
   fully_use_ports_ = param->params_ptree.get<bool>("Network.fully_use_ports", false);
   int latency = param->params_ptree.get<int>("Network.channel_latency", 4);
   physical_channel_ = Channel(1, latency);
+  mis_routing = param->params_ptree.get<bool>("Network.mis_routing", false);
 }
 
 void DragonflySW::connect_local() {
@@ -167,15 +168,16 @@ void DragonflySW::MIN_routing(Packet& s) const {
     int current_group_id = current_sw->group_id_;
     int dest_group_id = dest_sw->group_id_;
     // mis-routing
-    // int source_group_id = get_switch(s.source_)->group_id_;
-    // if (current_group_id == source_group_id) {
-    //  int sw_id_in_group = current_sw->chip_id_ % sw_per_group_;
-    //  int lowest_global_port_id = cores_per_sw_ + sw_id_in_group;
-    //  VCInfo vc(current->link_buffers_[lowest_global_port_id + s.source_.node_id], 0);
-    //  s.candidate_channels_.push_back(vc);
-    //  return;
-    //}
-    // std::cout << current_group_id << " " << dest_group_id << std::endl;
+    if (mis_routing) {
+      int source_group_id = get_switch(s.source_)->group_id_;
+      if (current_group_id == source_group_id) {
+        int sw_id_in_group = current_sw->chip_id_ % sw_per_group_;
+        int lowest_global_port_id = cores_per_sw_ + sw_id_in_group;
+        VCInfo vc(current->link_buffers_[lowest_global_port_id + s.source_.node_id], 0);
+        s.candidate_channels_.push_back(vc);
+        return;
+      }
+    }
     Port global_port = global_link_map_.at(std::make_pair(current_group_id, dest_group_id));
     if (current->id_ == global_port.node_id) {  // the global link is at current switch
       VCInfo vc(global_port.link_buffer, 0);

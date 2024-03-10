@@ -13,7 +13,8 @@
 #include <vector>
 
 const std::vector<std::string> router_stage_nums = {"OneStage", "TwoStage", "ThreeStage"};
-const std::vector<std::string> topologies = {"SingleChipMesh", "DragonflySW", "DragonflyChiplet"};
+const std::vector<std::string> topologies = {"SingleChipMesh", "DragonflySW",
+                                                  "DragonflyChiplet"};
 const std::vector<std::string> traffic_patterns = {
     "test",       "uniform",     "hotspot",  "bitcomplement", "bittranspose", "bitreverse",
     "bitshuffle", "adversarial", "sd_trace", "netrace",       "all_to_all"};
@@ -45,9 +46,6 @@ struct Parameters {
   int vc_number;
   std::string router_stages;
   int processing_time;     // cycles
-  int routing_time;        // cycles
-  int vc_allocating_time;  // cycles
-  int sw_allocating_time;  // cycles
 
   // Workloads
   std::string traffic;
@@ -72,8 +70,6 @@ struct Parameters {
     std::cout << std::setw(20) << "Buffer Size: " << buffer_size << std::endl;
     std::cout << std::setw(20) << "VC number: " << vc_number << std::endl;
     std::cout << std::setw(20) << "Processing Time: " << processing_time << std::endl;
-    std::cout << std::setw(20) << "Routing Time: " << routing_time << std::endl;
-    std::cout << std::setw(20) << "VC Allocating Time: " << vc_allocating_time << std::endl;
     std::cout << std::setw(20) << "Traffic: " << traffic << std::endl;
     std::cout << std::setw(20) << "Packet Length: " << packet_length << std::endl;
     std::cout << std::setw(20) << "Simulation Time: " << simulation_time << std::endl;
