@@ -13,9 +13,8 @@ class Packet {
 
   NodeID source_;
   NodeID destination_;
-  std::vector<VCInfo> flit_trace_;  // the ith flit now at routpath[i].node
-  // and take
-  // routpath[i].buffer
+  // the ith flit now at [i].node and take vc-[i].vcb of [i].buffer
+  std::vector<VCInfo> flit_trace_;
   std::vector<VCInfo> candidate_channels_;
   VCInfo next_vc_;  // vc for the next hop
   int interleaving_tag_;
@@ -23,8 +22,6 @@ class Packet {
 
   int length_;
   int process_timer_;  // time to process a message before injecting
-  int routing_timer_;  // time cost by routing
-  int VA_timer_;       // time cost by vitrual channel allocating
   int SA_timer_;       // time cost by switch allocating
   int link_timer_;     // time cost on the link
   int wait_timer_;     // waiting time in one buffer

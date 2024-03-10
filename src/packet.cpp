@@ -10,8 +10,6 @@ Packet::Packet(NodeID source, NodeID destination, int length) {
         flit_trace_.push_back(VCInfo(nullptr, 0, source_));
     }
     process_timer_ = param->processing_time;
-    routing_timer_ = 0;
-    VA_timer_ = 0;
     SA_timer_ = 0;
     link_timer_ = 0;
     candidate_channels_.clear();

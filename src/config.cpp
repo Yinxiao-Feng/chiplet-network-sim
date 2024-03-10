@@ -1,10 +1,8 @@
 #include "config.h"
 
 Parameters::Parameters(const std::string &config_file) {
-  config_file_path = config_file;
   params_ptree = boost::property_tree::ptree();
-  if (!config_file_path.empty())
-    boost::property_tree::ini_parser::read_ini(config_file_path, params_ptree);
+  if (!config_file.empty()) boost::property_tree::ini_parser::read_ini(config_file, params_ptree);
 
   topology = params_ptree.get<std::string>("Network.topology", "SingleChipMesh");
   buffer_size = params_ptree.get<int>("Network.buffer_size", 16);
@@ -20,8 +18,10 @@ Parameters::Parameters(const std::string &config_file) {
   timeout_threshold = params_ptree.get<int>("Simulation.timeout_threshold", 500);
   timeout_limit = params_ptree.get<int>("Simulation.timeout_limit", 100);
   threads = params_ptree.get<int>("Simulation.threads", 0);
-  if (threads >= 2) issue_width = params_ptree.get<int>("Simulation.issue_width", 10);
-  else issue_width = 1000;
+  if (threads >= 2)
+    issue_width = params_ptree.get<int>("Simulation.issue_width", 10);
+  else
+    issue_width = 1000;
 
   if (traffic == "sd_traces")
     trace_file = params_ptree.get<std::string>("Files.trace_file");

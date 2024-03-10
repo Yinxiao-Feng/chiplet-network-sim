@@ -125,11 +125,6 @@ void System::update(Packet& p) {
   // Processing at source node before transmission (Packetization, injection, etc.)
   if (p.head_trace().id == p.source_ && p.process_timer_ > 0) {
     p.process_timer_--;
-    if (p.process_timer_ == 0) {
-      // injected
-      p.routing_timer_ = routing_time_;
-      p.VA_timer_ = vc_allocating_time_;
-    }
     return;
   }
 
@@ -170,8 +165,6 @@ void System::update(Packet& p) {
       p.serial_hops_++;
     else
       p.other_hops_++;
-    p.routing_timer_ = routing_time_;
-    p.VA_timer_ = vc_allocating_time_;
     p.candidate_channels_.clear();
     p.next_vc_ = VCInfo();
     p.switch_allocated_ = false;
