@@ -97,7 +97,7 @@ DragonflyChiplet::DragonflyChiplet() : num_cgroup_(num_chips_), cgroups_(chips_)
   num_cores_ = num_cgroup_ * num_nodes_per_cg_;
   num_nodes_ = num_cores_;
   std::cout << "n_per_s:" << num_nodes_per_cg_ << " s_per_g:" << cgroup_per_wgroup_
-            << " g:" << num_wgroup_ << std::endl;
+            << " g:" << num_wgroup_ << " num_cores:" << num_cores_ << std::endl;
   cgroups_.reserve(num_cgroup_);
   for (int cgroup_id = 0; cgroup_id < num_cgroup_; cgroup_id++) {
     cgroups_.push_back(new CGroup(k_node_in_CG_, cgroup_radix_, param->vc_number,
@@ -217,17 +217,17 @@ void DragonflyChiplet::MIN_routing(Packet& s) const {
   int dest_cg_id_in_wg = dest_cgroup->cgroup_id_ % cgroup_per_wgroup_;
 
   if (current_cgroup->cgroup_id_ == dest_cgroup->cgroup_id_) {  // within the C-Group
-    XY_routing(s, destination->id_);
+    XY_routing(s, destination->id_, 2);
   } else if (current_cgroup->wgroup_id_ == dest_cgroup->wgroup_id_) {  // within the W-Group
     int node_id = local_link_map_.at({current_cg_id_in_wg, dest_cg_id_in_wg});
     Port local_port = get_port(current_cgroup->cgroup_id_, node_id);
     if (node_id == current->node_id_in_cg_) {  // ext_port is at current chiplet
-      VCInfo vc(local_port.link_buffer, 1);
+      VCInfo vc(local_port.link_buffer, 2);
       s.candidate_channels_.push_back(vc);
     } else {  // ext_port is at an other chiplet
-      XY_routing(s, local_port.node_id);
+      XY_routing(s, local_port.node_id, 2);
     }
-  } else {  // Global
+  } else {  // the destination switch is in another group (global)
     int current_wg_id = current_cgroup->wgroup_id_;
     int dest_wg_id = dest_cgroup->wgroup_id_;
     // mis-routing
@@ -244,7 +244,7 @@ void DragonflyChiplet::MIN_routing(Packet& s) const {
           VCInfo vc(misrouting_global_port.link_buffer, 0);
           s.candidate_channels_.push_back(vc);
         } else {
-          XY_routing(s, NodeID(misrouting_global_port.node_id));
+          XY_routing(s, NodeID(misrouting_global_port.node_id), 0);
           return;
         }
         // if (current_wg_id == source_wg_id) {
@@ -257,13 +257,13 @@ void DragonflyChiplet::MIN_routing(Packet& s) const {
     }
     Port global_port = global_link_map_.at({current_wg_id, dest_wg_id});
     if (global_port.node_id.node_id == current->node_id_in_cg_) {
-      VCInfo vc(global_port.link_buffer, 0);
+      VCInfo vc(global_port.link_buffer, 1);
       s.candidate_channels_.push_back(vc);
     } else {  // the global_port is at an other chiplet
       CGroup* global_cgroup = get_cgroup(global_port.node_id);
       // the global_port is at current C-Group
       if (current_cgroup->cgroup_id_ == global_cgroup->cgroup_id_) {
-        XY_routing(s, global_port.node_id);
+        XY_routing(s, global_port.node_id, 1);
       } else {  // the global_port is at an other C-Group, go a local link first
         // the cgroup_id_in_wgroup of the global_port
         int g_port_cg_id_in_wg = global_cgroup->cgroup_id_ % cgroup_per_wgroup_;
@@ -271,53 +271,79 @@ void DragonflyChiplet::MIN_routing(Packet& s) const {
         Port local_port = get_port(current_cgroup->cgroup_id_, node_id);
         // local_port is at current chiplet
         if (node_id == current->node_id_in_cg_) {
-          VCInfo vc(local_port.link_buffer, 0);
+          VCInfo vc(local_port.link_buffer, 1);
           s.candidate_channels_.push_back(vc);
         } else {  // local_port is at an other chiplet
-          XY_routing(s, local_port.node_id);
+          XY_routing(s, local_port.node_id, 1);
         }
       }
     }
   }
 }
 
-void DragonflyChiplet::XY_routing(Packet& s, NodeID dest) const {
+void DragonflyChiplet::XY_routing(Packet& s, NodeID dest, int vcb) const {
   NodeInCG* current_node = get_node(s.head_trace().id);
   NodeInCG* destination_node = get_node(dest);
 
-  int curx = current_node->x_;
-  int cury = current_node->y_;
-  int dstx = destination_node->x_;
-  int dsty = destination_node->y_;
-  int xdis = dstx - curx;  // x offset
-  int ydis = dsty - cury;  // y offset
+  int cur_x = current_node->x_;
+  int cur_y = current_node->y_;
+  int dest_x = destination_node->x_;
+  int dest_y = destination_node->y_;
+  int dis_x = dest_x - cur_x;  // x offset
+  int dis_y = dest_y - cur_y;  // y offset
 
-  // Adaptive Routing Channels
-  if (xdis < 0)
-    s.candidate_channels_.push_back(VCInfo(current_node->xneg_link_buffer_, 1));
-  else if (xdis > 0)
-    s.candidate_channels_.push_back(VCInfo(current_node->xpos_link_buffer_, 1));
-  if (ydis < 0)
-    s.candidate_channels_.push_back(VCInfo(current_node->yneg_link_buffer_, 1));
-  else if (ydis > 0)
-    s.candidate_channels_.push_back(VCInfo(current_node->ypos_link_buffer_, 1));
-
-  if (xdis < 0)  // first x
-    s.candidate_channels_.push_back(VCInfo(current_node->xneg_link_buffer_, 0));
-  else if (xdis > 0)
-    s.candidate_channels_.push_back(VCInfo(current_node->xpos_link_buffer_, 0));
-  else if (xdis == 0) {
-    if (ydis < 0)  // then y
-      s.candidate_channels_.push_back(VCInfo(current_node->yneg_link_buffer_, 0));
-    else if (ydis > 0)
-      s.candidate_channels_.push_back(VCInfo(current_node->ypos_link_buffer_, 0));
+  if (dis_x < 0)  // first x
+    s.candidate_channels_.push_back(VCInfo(current_node->xneg_link_buffer_, vcb));
+  else if (dis_x > 0)
+    s.candidate_channels_.push_back(VCInfo(current_node->xpos_link_buffer_, vcb));
+  else if (dis_x == 0) {
+    if (dis_y < 0)  // then y
+      s.candidate_channels_.push_back(VCInfo(current_node->yneg_link_buffer_, vcb));
+    else if (dis_y > 0)
+      s.candidate_channels_.push_back(VCInfo(current_node->ypos_link_buffer_, vcb));
   }
 }
 
-// DragonflyChiplet::PortID DragonflyChiplet::local_port_id_to_port_id(int local_port_id)
-// {
-//   return PortID();
-// }
+void DragonflyChiplet::XY_adaptive_routing(Packet& s, NodeID dest) const {
+  NodeInCG* current_node = get_node(s.head_trace().id);
+  NodeInCG* destination_node = get_node(dest);
+
+  int cur_x = current_node->x_;
+  int cur_y = current_node->y_;
+  int dest_x = destination_node->x_;
+  int dest_y = destination_node->y_;
+  int dis_x = dest_x - cur_x;  // x offset
+  int dis_y = dest_y - cur_y;  // y offset
+
+  // Adaptive Routing Channels
+  if (dis_x < 0)
+    for (int i = 0; i < current_node->xneg_link_buffer_->vc_num_ - 1; i++)
+      s.candidate_channels_.push_back(VCInfo(current_node->xneg_link_buffer_, i));
+  else if (dis_x > 0)
+    for (int i = 0; i < current_node->xpos_link_buffer_->vc_num_ - 1; i++)
+      s.candidate_channels_.push_back(VCInfo(current_node->xpos_link_buffer_, i));
+  if (dis_y < 0)
+    for (int i = 0; i < current_node->yneg_link_buffer_->vc_num_ - 1; i++)
+      s.candidate_channels_.push_back(VCInfo(current_node->yneg_link_buffer_, i));
+  else if (dis_y > 0)
+    for (int i = 0; i < current_node->ypos_link_buffer_->vc_num_ - 1; i++)
+      s.candidate_channels_.push_back(VCInfo(current_node->ypos_link_buffer_, i));
+
+  if (dis_x < 0)  // first x
+    s.candidate_channels_.push_back(
+        VCInfo(current_node->xneg_link_buffer_, current_node->xneg_link_buffer_->vc_num_ - 1));
+  else if (dis_x > 0)
+    s.candidate_channels_.push_back(
+        VCInfo(current_node->xpos_link_buffer_, current_node->xpos_link_buffer_->vc_num_ - 1));
+  else if (dis_x == 0) {
+    if (dis_y < 0)  // then y
+      s.candidate_channels_.push_back(
+          VCInfo(current_node->yneg_link_buffer_, current_node->yneg_link_buffer_->vc_num_ - 1));
+    else if (dis_y > 0)
+      s.candidate_channels_.push_back(
+          VCInfo(current_node->ypos_link_buffer_, current_node->ypos_link_buffer_->vc_num_ - 1));
+  }
+}
 
 std::pair<int, int> DragonflyChiplet::global_port_id_to_port_id(int global_port_id) {
   int cgroup_id_in_wgroup = global_port_id / g_ports_per_cg_;

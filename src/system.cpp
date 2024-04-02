@@ -100,7 +100,7 @@ void System::vc_allocate(Packet& p) const {
 
 void System::switch_allocate(Packet& p) {
   VCInfo current_vc = p.head_trace();
-  if (current_vc.buffer == nullptr) {
+  if (current_vc.buffer == nullptr) {              // the packet is at the source
     if (p.next_vc_.buffer->allocate_in_link(p)) {  // wait for link to the next buffer
       p.switch_allocated_ = true;
     }

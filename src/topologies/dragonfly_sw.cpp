@@ -149,22 +149,24 @@ void DragonflySW::MIN_routing(Packet& s) const {
   ChipSwitch* dest_sw = get_switch(s.destination_);
 
   if (current->id_.node_id != cores_per_sw_) {  // current node is core
-    VCInfo vc(current->link_buffers_[0], 0);
-    s.candidate_channels_.push_back(vc);
-    vc = VCInfo(current->link_buffers_[0], 1);
-    s.candidate_channels_.push_back(vc);
+    Buffer* next_buffer = current->link_buffers_[0];
+    for (int i = 0; i < param->vc_number; i++) {
+      s.candidate_channels_.push_back(VCInfo(next_buffer, i));
+    }
   }
   // current node is switch
   else if (current_sw->chip_id_ == dest_sw->chip_id_) {  // within the switch
-    VCInfo vc(current->link_buffers_[destination->id_.node_id], 0);
-    s.candidate_channels_.push_back(vc);
+    Buffer* next_buffer = current->link_buffers_[destination->id_.node_id];
+    for (int i = 0; i < param->vc_number; i++) {
+      s.candidate_channels_.push_back(VCInfo(next_buffer, i));
+    }
   } else if (current_sw->group_id_ == dest_sw->group_id_) {  // within the group
     int current_sw_id_in_group = current_sw->chip_id_ % sw_per_group_;
     int dest_sw_id_in_group = dest_sw->chip_id_ % sw_per_group_;
     int port_id = local_link_map_.at(std::make_pair(current_sw_id_in_group, dest_sw_id_in_group));
-    VCInfo vc(current->link_buffers_[port_id], 1);
+    VCInfo vc(current->link_buffers_[port_id], 2);
     s.candidate_channels_.push_back(vc);
-  } else {  // global
+  } else {  // the destination switch is in another group (global)
     int current_group_id = current_sw->group_id_;
     int dest_group_id = dest_sw->group_id_;
     // mis-routing
@@ -180,15 +182,15 @@ void DragonflySW::MIN_routing(Packet& s) const {
     }
     Port global_port = global_link_map_.at(std::make_pair(current_group_id, dest_group_id));
     if (current->id_ == global_port.node_id) {  // the global link is at current switch
-      VCInfo vc(global_port.link_buffer, 0);
+      VCInfo vc(global_port.link_buffer, 1);
       s.candidate_channels_.push_back(vc);
-    } else {
+    } else { // the global link is at another switch of the group
       ChipSwitch* global_sw = static_cast<ChipSwitch*>(get_chip(global_port.node_id.chip_id));
       int current_sw_id_in_group = current_sw->chip_id_ % sw_per_group_;
       int global_sw_id_in_group = global_sw->chip_id_ % sw_per_group_;
       int port_id =
           local_link_map_.at(std::make_pair(current_sw_id_in_group, global_sw_id_in_group));
-      VCInfo vc(current->link_buffers_[port_id], 0);
+      VCInfo vc(current->link_buffers_[port_id], 1);
       s.candidate_channels_.push_back(vc);
     }
   }

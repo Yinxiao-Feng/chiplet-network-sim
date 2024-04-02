@@ -34,6 +34,7 @@ struct Channel {
 const Channel on_chip_channel(1, 1);
 const Channel off_chip_parallel_channel(1, 2);
 const Channel off_chip_serial_channel(2, 4);
+const Channel long_distance_channel(1, 10);
 
 struct Parameters {
  public:
@@ -49,11 +50,12 @@ struct Parameters {
 
   // Workloads
   std::string traffic;
+  int traffic_scale;
   int packet_length;  // # of flits
 
   // Simulation Parameters
   uint64_t simulation_time;
-  float injection_increment;
+  double injection_increment;
   int timeout_threshold;
   int timeout_limit;
   int threads;

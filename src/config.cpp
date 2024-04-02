@@ -11,9 +11,10 @@ Parameters::Parameters(const std::string &config_file) {
   processing_time = params_ptree.get<int>("Network.processing_time", 2);
 
   traffic = params_ptree.get<std::string>("Workload.traffic", "uniform");
+  traffic_scale = params_ptree.get<int>("Workload.traffic_scale", 0);
   packet_length = params_ptree.get<int>("Workload.packet_length", 5);
 
-  injection_increment = params_ptree.get<float>("Simulation.injection_increment", 0.1);
+  injection_increment = params_ptree.get<double>("Simulation.injection_increment", 0.1);
   simulation_time = params_ptree.get<uint64_t>("Simulation.simulation_time", 10000);
   timeout_threshold = params_ptree.get<int>("Simulation.timeout_threshold", 500);
   timeout_limit = params_ptree.get<int>("Simulation.timeout_limit", 100);

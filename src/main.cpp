@@ -7,6 +7,7 @@
 Parameters* param;
 TrafficManager* TM;
 System* network;
+boost::mt19937 gen;
 
 static std::vector<std::thread> threads;
 static volatile bool all_finished = false;
@@ -92,10 +93,10 @@ int main(int argc, char* argv[]) {
   param = new Parameters(config_file);
   network = System::New(param->topology);
   TM = new TrafficManager();
-  srand(1);
+  gen.seed(1);
 
   uint64_t timeout_limit = param->timeout_limit;
-  float maximum_receiving_rate = 0;
+  double maximum_receiving_rate = 0;
   std::vector<Packet*> all_packets;
 
   // Multi-threads initialization
@@ -117,7 +118,7 @@ int main(int argc, char* argv[]) {
   }
 
   if (param->traffic == "netrace") {
-    TM->injection_rate_ = (float)TM->CTX->input_trheader->num_packets /
+    TM->injection_rate_ = (double)TM->CTX->input_trheader->num_packets /
                           TM->CTX->input_trheader->num_cycles / network->num_cores_;
     for (uint64_t i = 0; i < TM->CTX->input_trheader->num_cycles + 1000; i++) {
       TM->genMes(all_packets, i);
@@ -129,8 +130,8 @@ int main(int argc, char* argv[]) {
     while (true) {
       TM->injection_rate_ += param->injection_increment;
 
-      //  warm up for 10% of the simulation time
-      for (uint64_t i = 0; i < param->simulation_time / 10; i++) {
+      //  warm up for 50% of the simulation time
+      for (uint64_t i = 0; i < param->simulation_time / 2; i++) {
         TM->genMes(all_packets);
         run_one_cycle(all_packets, network);
       }
@@ -164,7 +165,7 @@ int main(int argc, char* argv[]) {
       for (auto pkt : all_packets) delete pkt;
       all_packets.clear();
       network->reset();
-      srand(1);
+      gen.seed(1);
     }
   if (param->threads > 1) {
     all_finished = true;
