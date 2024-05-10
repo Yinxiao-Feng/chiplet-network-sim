@@ -30,7 +30,7 @@ struct Channel {
   }
 };
 
-const Channel on_chip_channel(1, 1);
+const Channel on_chip_channel(1, 0);
 const Channel off_chip_parallel_channel(1, 2);
 const Channel off_chip_serial_channel(2, 4);
 
@@ -44,6 +44,7 @@ struct Parameters {
   int buffer_size;  // flits
   int vc_number;
   std::string router_stages;
+  int on_chip_latency;
   int processing_time;     // cycles
   int routing_time;        // cycles
   int vc_allocating_time;  // cycles
@@ -55,6 +56,7 @@ struct Parameters {
 
   // Simulation Parameters
   uint64_t simulation_time;
+  uint64_t warmup_time;
   float injection_increment;
   int timeout_threshold;
   int timeout_limit;

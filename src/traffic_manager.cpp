@@ -70,7 +70,7 @@ void TrafficManager::print_statistics() {
   float average_internal_hops = ((float)TM->total_internal_hops_ / TM->message_arrived_);
   float average_parallel_hops = ((float)TM->total_parallel_hops_ / TM->message_arrived_);
   float average_serial_hops = ((float)TM->total_serial_hops_ / TM->message_arrived_);
-  std::cout << std::endl
+  log_ << std::endl
             << "Time elapsed: " << elapsed_seconds.count() << "s" << std::endl
             << "Injection rate:" << injection_rate_ << " flits/(node*cycle)"
             << "    Injected:" << all_message_num_ << "    Arrived:  " << message_arrived_

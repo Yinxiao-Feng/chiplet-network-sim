@@ -10,6 +10,7 @@ Parameters::Parameters(const std::string &config_file) {
   buffer_size = params_ptree.get<int>("Network.buffer_size", 16);
   vc_number = params_ptree.get<int>("Network.vc_number", 1);
   router_stages = params_ptree.get<std::string>("Network.router_stages", "ThreeStage");
+  on_chip_latency = params_ptree.get<int>("Network.on_chip_latency", 0);
   processing_time = params_ptree.get<int>("Network.processing_time", 2);
   routing_time = params_ptree.get<int>("Network.routing_time", 0);
   vc_allocating_time = params_ptree.get<int>("Network.vc_allocating_time", 0);
@@ -20,7 +21,8 @@ Parameters::Parameters(const std::string &config_file) {
 
   injection_increment = params_ptree.get<float>("Simulation.injection_increment", 0.1);
   simulation_time = params_ptree.get<uint64_t>("Simulation.simulation_time", 10000);
-  timeout_threshold = params_ptree.get<int>("Simulation.timeout_threshold", 500);
+  warmup_time = params_ptree.get<uint64_t>("Simulation.warmup_time", 1000);
+  timeout_threshold = params_ptree.get<int>("Simulation.timeout_threshold", 200);
   timeout_limit = params_ptree.get<int>("Simulation.timeout_limit", 100);
   threads = params_ptree.get<int>("Simulation.threads", 0);
   if (threads >= 2) issue_width = params_ptree.get<int>("Simulation.issue_width", 10);

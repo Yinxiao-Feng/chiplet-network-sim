@@ -124,8 +124,7 @@ int main(int argc, char* argv[]) {
     while (true) {
       TM->injection_rate_ += param->injection_increment;
 
-      //  warm up for 10% of the simulation time
-      for (uint64_t i = 0; i < param->simulation_time / 10; i++) {
+      for (uint64_t i = 0; i < param->warmup_time; i++) {
         TM->genMes(all_packets);
         run_one_cycle(all_packets, network);
       }

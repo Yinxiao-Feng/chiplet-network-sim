@@ -17,6 +17,7 @@ Buffer::Buffer(Node* node, int vc_num, int buffer_size, Channel channel) {
   buffer_size_ = buffer_size;
   vc_num_ = vc_num;
   channel_ = channel;
+  channel_.latency = param->on_chip_latency;
   link_used_.store(false);
   vc_buffer_ = new std::atomic_int[vc_num_];
   vc_queue_ = new std::queue<Packet*>[vc_num_];
