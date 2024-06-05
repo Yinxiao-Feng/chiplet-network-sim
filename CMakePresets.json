@@ -1,0 +1,31 @@
+{
+    "version": 2,
+    "configurePresets": [
+        {
+            "name": "Linux-Release",
+            "displayName": "GCC x86_64-linux-gnu Release",
+            "description": "C = /usr/bin/gcc, CXX = /usr/bin/g++",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/builds/${presetName}",
+            "cacheVariables": {
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/${presetName}",
+                "CMAKE_C_COMPILER": "/usr/bin/gcc",
+                "CMAKE_CXX_COMPILER": "/usr/bin/g++",
+                "CMAKE_BUILD_TYPE": "Release"
+            }
+        },
+        {
+            "name": "Linux-Debug",
+            "displayName": "GCC x86_64-linux-gnu Debug",
+            "description": "C = /usr/bin/gcc, CXX = /usr/bin/g++",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/builds/${presetName}",
+            "cacheVariables": {
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/${presetName}",
+                "CMAKE_C_COMPILER": "/usr/bin/gcc",
+                "CMAKE_CXX_COMPILER": "/usr/bin/g++",
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        }
+    ]
+}

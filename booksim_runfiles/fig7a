@@ -1,0 +1,45 @@
+
+//
+// Flow control
+//
+
+num_vcs     = 2;
+vc_buf_size = 20;
+
+//
+// Traffic
+//
+
+sim_type = latency;
+
+warmup_periods = 1;
+
+sample_period  = 100000;  
+
+sim_count          = 1;
+
+
+
+//topoogy
+
+topology = mesh;
+k  = 4;
+n  = 2;
+//
+// Routing
+
+
+routing_function = dor;
+
+packet_size = 5;
+
+use_read_write = 0;
+
+traffic       = uniform;
+
+// packets per cycle
+// * packet_size = flits per cycle
+injection_rate = 0.1;
+
+
+
