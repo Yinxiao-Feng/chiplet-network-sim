@@ -1,18 +1,30 @@
-# ChipletNetworkSim
+# Chiplet Network Sim
+
+Chiplet Network Simulator (CNSim) is a cycle-accurate packet-parallel simulator supporting efficient simulation for large-scale chiplet-based networks.
+
+If you use CNSim in your research, we would appreciate the following citation in any publications to which it has contributed:
+
+Yinxiao Feng, Yuchen Wei, Dong Xiang and Kaisheng Ma. Evaluating Chiplet-based Large-Scale Interconnection Networks via Cycle-Accurate Packet-Parallel Simulation. In 2024 USENIX Annual Technical Conference (ATC), 2024.
 
 ### Features
-- cross-platform
+- Hyper-threading
+- Cycle-accurate
+- Highly configurable and customizable in terms of topology, routing algorithms, and microarchitecture.
+
 
 ### Dependencies
 - boost library
 - netrace (optional, modified from https://github.com/booksim/netrace)
 	- bzip2
 
-### Recommended Usage: Visual Studio 2022
-- windows or linux (via ssh or wsl)
-- open the directory as a cmake project
+### Usage: 
+- Windows
+  - Visual Studio 2022
+  - Open the directory as a cmake project
+- Linux
+  - Enter the directory, build, and run
 
-### Command Line for Ubuntu 22.04
+### Ubuntu 22.04
 ```
 sudo apt install cmake ninja-build build-essential libboost-all-dev libbz2-dev
 cd chiplet-network-sim
@@ -21,3 +33,8 @@ cd builds/Linux-Release/
 cmake --build .
 ./ChipletNetworkSim ../../input/dragonfly/global-chiplet-16.ini
 ```
+
+### Acknowledgement
+ - Yuchen Wei, Tsinghua University
+ - Dong Xiang and Kaisheng Ma, Tsinghua University
+ - BookSim and Netrace (https://github.com/booksim)
