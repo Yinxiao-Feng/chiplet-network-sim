@@ -217,15 +217,15 @@ void DragonflyChiplet::MIN_routing(Packet& s) const {
   int dest_cg_id_in_wg = dest_cgroup->cgroup_id_ % cgroup_per_wgroup_;
 
   if (current_cgroup->cgroup_id_ == dest_cgroup->cgroup_id_) {  // within the C-Group
-    XY_routing(s, destination->id_, 2);
+    XY_routing(s, destination->id_, 4);
   } else if (current_cgroup->wgroup_id_ == dest_cgroup->wgroup_id_) {  // within the W-Group
     int node_id = local_link_map_.at({current_cg_id_in_wg, dest_cg_id_in_wg});
     Port local_port = get_port(current_cgroup->cgroup_id_, node_id);
     if (node_id == current->node_id_in_cg_) {  // ext_port is at current chiplet
-      VCInfo vc(local_port.link_buffer, 2);
+      VCInfo vc(local_port.link_buffer, 4);
       s.candidate_channels_.push_back(vc);
     } else {  // ext_port is at an other chiplet
-      XY_routing(s, local_port.node_id, 2);
+      XY_routing(s, local_port.node_id, 3);
     }
   } else {  // the destination switch is in another group (global)
     int current_wg_id = current_cgroup->wgroup_id_;
@@ -241,7 +241,7 @@ void DragonflyChiplet::MIN_routing(Packet& s) const {
             port_node_map_.at(src_cg_id_in_wgroup + s.source_.node_id % g_ports_per_cg_);
         Port misrouting_global_port = get_port(current_cgroup->cgroup_id_, leave_node_id);
         if (current->node_id_in_cg_ == leave_node_id) {
-          VCInfo vc(misrouting_global_port.link_buffer, 0);
+          VCInfo vc(misrouting_global_port.link_buffer, 1);
           s.candidate_channels_.push_back(vc);
         } else {
           XY_routing(s, NodeID(misrouting_global_port.node_id), 0);
@@ -257,13 +257,13 @@ void DragonflyChiplet::MIN_routing(Packet& s) const {
     }
     Port global_port = global_link_map_.at({current_wg_id, dest_wg_id});
     if (global_port.node_id.node_id == current->node_id_in_cg_) {
-      VCInfo vc(global_port.link_buffer, 1);
+      VCInfo vc(global_port.link_buffer, 3);
       s.candidate_channels_.push_back(vc);
     } else {  // the global_port is at an other chiplet
       CGroup* global_cgroup = get_cgroup(global_port.node_id);
       // the global_port is at current C-Group
       if (current_cgroup->cgroup_id_ == global_cgroup->cgroup_id_) {
-        XY_routing(s, global_port.node_id, 1);
+        XY_routing(s, global_port.node_id, 2);
       } else {  // the global_port is at an other C-Group, go a local link first
         // the cgroup_id_in_wgroup of the global_port
         int g_port_cg_id_in_wg = global_cgroup->cgroup_id_ % cgroup_per_wgroup_;
@@ -271,7 +271,7 @@ void DragonflyChiplet::MIN_routing(Packet& s) const {
         Port local_port = get_port(current_cgroup->cgroup_id_, node_id);
         // local_port is at current chiplet
         if (node_id == current->node_id_in_cg_) {
-          VCInfo vc(local_port.link_buffer, 1);
+          VCInfo vc(local_port.link_buffer, 2);
           s.candidate_channels_.push_back(vc);
         } else {  // local_port is at an other chiplet
           XY_routing(s, local_port.node_id, 1);

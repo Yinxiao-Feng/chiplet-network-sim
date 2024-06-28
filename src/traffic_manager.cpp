@@ -328,7 +328,7 @@ void TrafficManager::all_to_all_bi_mess(std::vector<Packet*>& packets) {
         }
       } else if (param->topology == "DragonflySW") {
         dest1 = (src + 1) % traffic_scale_;
-        dest2  = (src - 1) % traffic_scale_;
+        dest2  = (src - 1 + traffic_scale_) % traffic_scale_;
       }
       Packet* mess = new Packet(NodeID(src % core_per_chip, src / core_per_chip),
                                 NodeID(dest1 % core_per_chip, dest1 / core_per_chip), message_length_);
