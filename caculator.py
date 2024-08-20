@@ -40,7 +40,7 @@ print("FT Switch Number:{} ".format(num_switch))
 num_chip = 32*64*32
 print("FT Chip Number:{} ".format(num_chip))
 print("FT Cable Number:{} ".format((num_switch*64+num_chip)//2))
-print("Taper FT Cabinet Number:{} ".format(num_chip//128+32*(64+32)//32))
+print("FT Cabinet Number:{} ".format(num_chip//128+32*(64+32)//32))
 
 ## Taper Fat-tree (radix-4)
 num_switch = (16*(64+32)+32*64)*4
