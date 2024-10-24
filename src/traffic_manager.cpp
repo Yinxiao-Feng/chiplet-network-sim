@@ -100,11 +100,11 @@ void TrafficManager::print_statistics() {
 }
 
 void TrafficManager::genMes(std::vector<Packet*>& packets, uint64_t cyc) {
-  if (traffic_ == "all_to_all") {
-    all_to_all_mess(packets);
+  if (traffic_ == "ring_all_reduce") {
+    ring_all_reduce_mess(packets);
     return;
-  } else if (traffic_ == "all_to_all_bi") {
-    all_to_all_bi_mess(packets);
+  } else if (traffic_ == "ring_all_reduce_bi") {
+    ring_all_reduce_bi_mess(packets);
     return;
   } else if (traffic_ == "netrace") {
     netrace(packets, cyc);
@@ -279,7 +279,7 @@ Packet* TrafficManager::sd_trace_mess() {
                     NodeID(dest % core_per_chip, dest / core_per_chip), message_length_);
 }
 
-void TrafficManager::all_to_all_mess(std::vector<Packet*>& packets) {
+void TrafficManager::ring_all_reduce_mess(std::vector<Packet*>& packets) {
   int core_per_chip = network->chips_[0]->number_cores_;
   for (pkt_for_injection_ += message_per_cycle(); pkt_for_injection_ > traffic_scale_;
        pkt_for_injection_ -= traffic_scale_) {
@@ -306,7 +306,7 @@ void TrafficManager::all_to_all_mess(std::vector<Packet*>& packets) {
   }
 }
 
-void TrafficManager::all_to_all_bi_mess(std::vector<Packet*>& packets) {
+void TrafficManager::ring_all_reduce_bi_mess(std::vector<Packet*>& packets) {
   int core_per_chip = network->chips_[0]->number_cores_;
   for (pkt_for_injection_ += message_per_cycle(); pkt_for_injection_ > traffic_scale_ * 2;
        pkt_for_injection_ -= traffic_scale_ * 2) {

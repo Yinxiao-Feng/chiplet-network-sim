@@ -8,7 +8,7 @@ class Chip {
   ~Chip();
 
   virtual void set_chip(System* system, int chip_id_);
-  void clear_all();
+  void reset();
 
   virtual inline Node* get_node(int node_id) const { return nodes_[node_id]; }
   virtual inline Node* get_node(NodeID id) const  { return nodes_[id.node_id]; }

@@ -40,7 +40,7 @@ System* System::New(const std::string& topology) {
 
 void System::reset() {
   for (auto chip : chips_) {
-    chip->clear_all();
+    chip->reset();
   }
 }
 

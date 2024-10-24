@@ -26,9 +26,9 @@ void Chip::set_chip(System* system, int chip_id)
 	}
 }
 
-void Chip::clear_all() {
+void Chip::reset() {
 	for (auto node : nodes_) {
-		node->clear_all();
+		node->reset();
 	}
 }
 

@@ -17,7 +17,7 @@ const std::vector<std::string> topologies = {"SingleChipMesh", "DragonflySW",
                                                   "DragonflyChiplet"};
 const std::vector<std::string> traffic_patterns = {
     "test",       "uniform",     "hotspot",  "bitcomplement", "bittranspose", "bitreverse",
-    "bitshuffle", "adversarial", "sd_trace", "netrace",       "all_to_all"};
+    "bitshuffle", "adversarial", "sd_trace", "netrace", "ring_all_reduce", "ring_all_reduce_bi"};
 
 struct Channel {
   Channel(int link_width = 0, int link_latency = 0) : width(link_width), latency(link_latency) {}
@@ -59,6 +59,7 @@ struct Parameters {
   int timeout_threshold;
   int timeout_limit;
   int threads;
+  // Each thread fetches issue_width packets at a time
   int issue_width;
 
   // I/O Files

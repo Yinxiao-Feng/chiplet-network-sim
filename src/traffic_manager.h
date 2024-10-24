@@ -25,8 +25,8 @@ class TrafficManager {
   Packet* bittranspose_mess();
   Packet* adversarial_mess();
   Packet* sd_trace_mess();
-  void all_to_all_mess(std::vector<Packet*>& packets);
-  void all_to_all_bi_mess(std::vector<Packet*>& packets);
+  void ring_all_reduce_mess(std::vector<Packet*>& packets);
+  void ring_all_reduce_bi_mess(std::vector<Packet*>& packets);
   void netrace(std::vector<Packet*>& packets, uint64_t cyc);
   inline double receiving_rate() const {
     return injection_rate_ * ((double)TM->message_arrived_ / TM->all_message_num_);

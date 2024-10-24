@@ -45,7 +45,7 @@ class Buffer {
     } else
       vc_head_packet[vcb].store(nullptr);
   }
-  void clear_buffer();
+  void reset();
 
   // Point to the node where the buffer is located.
   Node* node_;

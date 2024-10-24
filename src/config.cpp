@@ -1,5 +1,6 @@
 #include "config.h"
 
+// paser parameters from config file
 Parameters::Parameters(const std::string &config_file) {
   params_ptree = boost::property_tree::ptree();
   if (!config_file.empty()) boost::property_tree::ini_parser::read_ini(config_file, params_ptree);
@@ -18,7 +19,7 @@ Parameters::Parameters(const std::string &config_file) {
   simulation_time = params_ptree.get<uint64_t>("Simulation.simulation_time", 10000);
   timeout_threshold = params_ptree.get<int>("Simulation.timeout_threshold", 500);
   timeout_limit = params_ptree.get<int>("Simulation.timeout_limit", 100);
-  threads = params_ptree.get<int>("Simulation.threads", 0);
+  threads = params_ptree.get<int>("Simulation.threads", 2);
   if (threads >= 2)
     issue_width = params_ptree.get<int>("Simulation.issue_width", 10);
   else
