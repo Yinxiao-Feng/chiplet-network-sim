@@ -60,6 +60,12 @@ class DragonflySW : public System {
   int& num_switch_;
   bool mis_routing;
 
+  // VC classes used by MIN routing. The class never decreases along a path,
+  // which keeps channel dependencies acyclic (deadlock free).
+  int misroute_vc_;    // global hop leaving the source group (mis-routing only)
+  int global_vc_;      // local hops toward the global link, and the global hop
+  int dest_local_vc_;  // local hop within the destination group
+
   // <src_sw_id_in_group, dest_sw_id_in_group> -> port_id
   std::map<std::pair<int, int>, int> local_link_map_;
   // <src_group_id, dest_group_id> -> port
