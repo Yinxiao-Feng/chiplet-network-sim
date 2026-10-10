@@ -17,7 +17,8 @@ const std::vector<std::string> topologies = {"SingleChipMesh", "DragonflySW",
                                                   "DragonflyChiplet"};
 const std::vector<std::string> traffic_patterns = {
     "test",       "uniform",     "hotspot",  "bitcomplement", "bittranspose", "bitreverse",
-    "bitshuffle", "adversarial", "sd_trace", "netrace", "ring_all_reduce", "ring_all_reduce_bi"};
+    "bitshuffle", "adversarial", "sd_trace", "netrace", "ring_all_reduce", "ring_all_reduce_bi",
+    "intra_group_uniform"};
 
 struct Channel {
   Channel(int link_width = 0, int link_latency = 0) : width(link_width), latency(link_latency) {}
