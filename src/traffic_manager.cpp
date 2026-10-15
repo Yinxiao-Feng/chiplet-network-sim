@@ -1,5 +1,7 @@
 #include "traffic_manager.h"
 
+#include <cstdlib>
+
 #include "boost/dynamic_bitset.hpp"
 
 TrafficManager::TrafficManager() {
@@ -8,6 +10,18 @@ TrafficManager::TrafficManager() {
   traffic_scale_ = param->traffic_scale;
   if (traffic_scale_ == 0) traffic_scale_ = network->num_cores_;
   message_length_ = param->packet_length;
+  if (traffic_ == "intra_group_uniform") {
+    int core_per_chip = network->chips_[0]->number_cores_;
+    if (core_per_chip < 2) {
+      std::cerr << "intra_group_uniform requires at least 2 cores per chip" << std::endl;
+      std::exit(EXIT_FAILURE);
+    }
+    if (traffic_scale_ % core_per_chip != 0) {
+      std::cerr << "intra_group_uniform requires traffic_scale to be a multiple of "
+                << core_per_chip << std::endl;
+      std::exit(EXIT_FAILURE);
+    }
+  }
   if (traffic_ == "sd_trace") {
     trace_.open(param->trace_file, std::fstream::in);
     std::cout << "Trace file is read!" << std::endl;
@@ -151,12 +165,14 @@ Packet* TrafficManager::uniform_mess() {
                     NodeID(dest % core_per_chip, dest / core_per_chip), message_length_);
 }
 
+// The destination is another core of the source's chip (a switch in DragonflySW, a C-group in
+// DragonflyChiplet).
 Packet* TrafficManager::intra_group_uniform_mess() {
   int src, dest;
   int core_per_chip = network->chips_[0]->number_cores_;
   while (true) {
     src = gen() % traffic_scale_;
-    dest = gen() % traffic_scale_;
+    dest = src / core_per_chip * core_per_chip + gen() % core_per_chip;
     if (dest != src) break;
   }
   return new Packet(NodeID(src % core_per_chip, src / core_per_chip),
